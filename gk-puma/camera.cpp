@@ -3,8 +3,8 @@
 using namespace mini;
 using namespace DirectX;
 
-OrbitCamera::OrbitCamera(XMFLOAT3 target, float minDist, float maxDist, float dist)
-	: m_angleX(0), m_angleY(0), m_target(target.x, target.y, target.z, 1.0f), m_distance(dist)
+OrbitCamera::OrbitCamera(XMFLOAT3 target, float minDist, float maxDist, float dist, float ax, float ay)
+	: m_angleX(ax), m_angleY(ay), m_target(target.x, target.y, target.z, 1.0f), m_distance(dist)
 {
 	SetDistanceRange(minDist, maxDist);
 }
@@ -57,7 +57,11 @@ void OrbitCamera::MoveTarget(FXMVECTOR v)
 
 void OrbitCamera::Rotate(float dx, float dy)
 {
-	m_angleX = XMScalarModAngle(m_angleX + dx);
+	const float PITCH_MIN = -XM_PIDIV2 + 0.01f;
+	const float PITCH_MAX = XM_PIDIV2 - 0.01f;
+
+	m_angleX += dx;
+	m_angleX = m_angleX < PITCH_MIN ? PITCH_MIN : m_angleX > PITCH_MAX ? PITCH_MAX : m_angleX;
 	m_angleY = XMScalarModAngle(m_angleY + dy);
 }
 

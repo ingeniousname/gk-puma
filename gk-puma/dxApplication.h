@@ -54,9 +54,9 @@ namespace mini
 		Mouse m_mouse;
 		Keyboard m_keyboard;
 
-		static constexpr float ROTATION_SPEED = 0.01f;
+		static constexpr float ROTATION_SPEED = 0.005f;
 		static constexpr float ZOOM_SPEED = 0.02f;
-		static constexpr float MOVE_SPEED = 0.02f;
+		static constexpr float MOVE_SPEED = 2.f;
 
 		FPSCamera m_camera;
 

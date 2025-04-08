@@ -10,7 +10,7 @@ DxApplication::DxApplication(HINSTANCE hInstance, int wndWidth, int wndHeight, s
 	m_device(m_window), m_inputDevice(hInstance),
 	m_mouse(m_inputDevice.CreateMouseDevice(m_window.getHandle())),
 	m_keyboard(m_inputDevice.CreateKeyboardDevice(m_window.getHandle())),
-	m_camera(XMFLOAT3(2, 3, 3)), m_viewport{ m_window.getClientSize() }
+	m_camera(XMFLOAT3(0.5f, 1.2f, 2.5f), 0.47f, -2.85f), m_viewport{ m_window.getClientSize() }
 {
 	ID3D11Texture2D *temp = nullptr;
 	auto hr = m_device.swapChain()->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&temp));
@@ -85,34 +85,34 @@ bool DxApplication::HandleCameraInput(double dt)
 		moved = true;
 	}
 
-	//XMVECTOR moveVec = XMVectorZero();
-	//float moveSpeed = MOVE_SPEED * dt; // Units per second
+	XMVECTOR moveVec = XMVectorZero();
+	float moveSpeed = MOVE_SPEED * dt; // Units per second
 
-	//if (kbState.isKeyDown(DIK_W))
-	//	moveVec += XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f); // world forward (+Z)
+	if (kbState.isKeyDown(DIK_W))
+		moveVec += m_camera.getForwardDir(); // world forward (+Z)
 
-	//if (kbState.isKeyDown(DIK_S))
-	//	moveVec += XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f); // world backward (-Z)
+	if (kbState.isKeyDown(DIK_S))
+		moveVec -= m_camera.getForwardDir(); // world backward (-Z)
 
-	//if (kbState.isKeyDown(DIK_A))
-	//	moveVec += XMVectorSet(-1.0f, 0.0f, 0.0f, 0.0f); // world left (-X)
+	if (kbState.isKeyDown(DIK_A))
+		moveVec -= m_camera.getRightDir(); // world left (-X)
 
-	//if (kbState.isKeyDown(DIK_D))
-	//	moveVec += XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f);  // world right (+X)
+	if (kbState.isKeyDown(DIK_D))
+		moveVec += m_camera.getRightDir();  // world right (+X)
 
-	//if (kbState.isKeyDown(DIK_Q))
-	//	moveVec += XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);  // world up (+Y)
+	if (kbState.isKeyDown(DIK_Q))
+		moveVec += XMVectorSet(0.0f, -1.0f, 0.0f, 0.0f);  // world up (+Y)
 
-	//if (kbState.isKeyDown(DIK_E))
-	//	moveVec += XMVectorSet(0.0f, -1.0f, 0.0f, 0.0f); // world down (-Y)
+	if (kbState.isKeyDown(DIK_E))
+		moveVec += XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f); // world down (-Y)
 
-	//if (!XMVector3Equal(moveVec, XMVectorZero()))
-	//{
-	//	moved = true;
-	//	moveVec = XMVector3Normalize(moveVec);
-	//	moveVec = XMVectorScale(moveVec, moveSpeed);
-	//	m_camera.MoveTarget(moveVec);
-	//}
+	if (!XMVector3Equal(moveVec, XMVectorZero()))
+	{
+		moved = true;
+		moveVec = XMVector3Normalize(moveVec);
+		moveVec = XMVectorScale(moveVec, moveSpeed);
+		m_camera.MoveTarget(moveVec);
+	}
 
 
 	return moved;

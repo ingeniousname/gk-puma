@@ -6,8 +6,7 @@ using namespace mini;
 using namespace gk2;
 using namespace DirectX;
 using namespace std;
-
-const XMFLOAT4 Puma::LIGHT_POS = {1.0f, 1.0f, 1.0f, 1.0f};
+const XMFLOAT4 Puma::LIGHT_POS = {2.0f, 3.0f, 3.0f, 1.0f};
 
 Puma::Puma(HINSTANCE appInstance)
 	: DxApplication(appInstance, 1280, 720, L"Pokój"), 
@@ -132,7 +131,7 @@ void Puma::DrawScene()
 	SetShaders(m_phongVS, m_phongPS);
 	XMFLOAT4X4 mtx;
 	XMStoreFloat4x4(&mtx, XMMatrixIdentity());
-	SetSurfaceColor({ 0.25f, 0.25f, 0.25f, 1.f });
+	SetSurfaceColor({ 0.75f, 0.75f, 0.75f, 1.f });
 	for (int i = 0; i < 6; i++)
 		DrawMesh(m_manipulator[i], mtx);
 }
