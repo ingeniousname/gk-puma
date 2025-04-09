@@ -28,6 +28,9 @@ namespace mini::gk2
 		dx_ptr<ID3D11Buffer> m_cbLightPos; //pixel shader constant buffer slot 1
 
 		Mesh m_manipulator[6];
+		Mesh m_cylinder;
+		Mesh m_box;
+		Mesh m_mirror;
 
 		DirectX::XMFLOAT4X4 m_projMtx;
 
@@ -45,7 +48,6 @@ namespace mini::gk2
 		void UpdateCameraCB() { UpdateCameraCB(m_camera.getViewMatrix()); }
 
 		void DrawMesh(const Mesh& m, DirectX::XMFLOAT4X4 worldMtx);
-		void DrawParticles();
 
 		void SetWorldMtx(DirectX::XMFLOAT4X4 mtx);
 		void SetSurfaceColor(DirectX::XMFLOAT4 color);

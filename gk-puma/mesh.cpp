@@ -114,52 +114,60 @@ std::vector<VertexPositionNormal> mini::Mesh::ShadedBoxVerts(float width, float 
 {
 	return {
 		//Front face
-		{ { -0.5f * width, -0.5f * height, -0.5f * depth }, { 0.0f, 0.0f, -1.0f } },
-		{ { +0.5f * width, -0.5f * height, -0.5f * depth }, { 0.0f, 0.0f, -1.0f } },
-		{ { +0.5f * width, +0.5f * height, -0.5f * depth }, { 0.0f, 0.0f, -1.0f } },
-		{ { -0.5f * width, +0.5f * height, -0.5f * depth }, { 0.0f, 0.0f, -1.0f } },
+		{ { -0.5f * width, -0.5f * height, -0.5f * depth }, { 0.0f, 0.0f, 1.0f } },
+		{ { +0.5f * width, -0.5f * height, -0.5f * depth }, { 0.0f, 0.0f, 1.0f } },
+		{ { +0.5f * width, +0.5f * height, -0.5f * depth }, { 0.0f, 0.0f, 1.0f } },
+		{ { -0.5f * width, +0.5f * height, -0.5f * depth }, { 0.0f, 0.0f, 1.0f } },
 
 		//Back face
-		{ { +0.5f * width, -0.5f * height, +0.5f * depth }, { 0.0f, 0.0f,  1.0f } },
-		{ { -0.5f * width, -0.5f * height, +0.5f * depth }, { 0.0f, 0.0f,  1.0f } },
-		{ { -0.5f * width, +0.5f * height, +0.5f * depth }, { 0.0f, 0.0f,  1.0f } },
-		{ { +0.5f * width, +0.5f * height, +0.5f * depth }, { 0.0f, 0.0f,  1.0f } },
+		{ { +0.5f * width, -0.5f * height, +0.5f * depth }, { 0.0f, 0.0f,  -1.0f } },
+		{ { -0.5f * width, -0.5f * height, +0.5f * depth }, { 0.0f, 0.0f,  -1.0f } },
+		{ { -0.5f * width, +0.5f * height, +0.5f * depth }, { 0.0f, 0.0f,  -1.0f } },
+		{ { +0.5f * width, +0.5f * height, +0.5f * depth }, { 0.0f, 0.0f,  -1.0f } },
 
 		//Left face
-		{ { -0.5f * width, -0.5f * height, +0.5f * depth }, { -1.0f, 0.0f, 0.0f } },
-		{ { -0.5f * width, -0.5f * height, -0.5f * depth }, { -1.0f, 0.0f, 0.0f } },
-		{ { -0.5f * width, +0.5f * height, -0.5f * depth }, { -1.0f, 0.0f, 0.0f } },
-		{ { -0.5f * width, +0.5f * height, +0.5f * depth }, { -1.0f, 0.0f, 0.0f } },
+		{ { -0.5f * width, -0.5f * height, +0.5f * depth }, { 1.0f, 0.0f, 0.0f } },
+		{ { -0.5f * width, -0.5f * height, -0.5f * depth }, { 1.0f, 0.0f, 0.0f } },
+		{ { -0.5f * width, +0.5f * height, -0.5f * depth }, { 1.0f, 0.0f, 0.0f } },
+		{ { -0.5f * width, +0.5f * height, +0.5f * depth }, { 1.0f, 0.0f, 0.0f } },
 
 		//Right face
-		{ { +0.5f * width, -0.5f * height, -0.5f * depth }, {  1.0f, 0.0f, 0.0f } },
-		{ { +0.5f * width, -0.5f * height, +0.5f * depth }, {  1.0f, 0.0f, 0.0f } },
-		{ { +0.5f * width, +0.5f * height, +0.5f * depth }, {  1.0f, 0.0f, 0.0f } },
-		{ { +0.5f * width, +0.5f * height, -0.5f * depth }, {  1.0f, 0.0f, 0.0f } },
+		{ { +0.5f * width, -0.5f * height, -0.5f * depth }, {  -1.0f, 0.0f, 0.0f } },
+		{ { +0.5f * width, -0.5f * height, +0.5f * depth }, {  -1.0f, 0.0f, 0.0f } },
+		{ { +0.5f * width, +0.5f * height, +0.5f * depth }, {  -1.0f, 0.0f, 0.0f } },
+		{ { +0.5f * width, +0.5f * height, -0.5f * depth }, {  -1.0f, 0.0f, 0.0f } },
 
 		//Bottom face
-		{ { -0.5f * width, -0.5f * height, +0.5f * depth }, { 0.0f, -1.0f, 0.0f } },
-		{ { +0.5f * width, -0.5f * height, +0.5f * depth }, { 0.0f, -1.0f, 0.0f } },
-		{ { +0.5f * width, -0.5f * height, -0.5f * depth }, { 0.0f, -1.0f, 0.0f } },
-		{ { -0.5f * width, -0.5f * height, -0.5f * depth }, { 0.0f, -1.0f, 0.0f } },
+		{ { -0.5f * width, -0.5f * height, +0.5f * depth }, { 0.0f, 1.0f, 0.0f } },
+		{ { +0.5f * width, -0.5f * height, +0.5f * depth }, { 0.0f, 1.0f, 0.0f } },
+		{ { +0.5f * width, -0.5f * height, -0.5f * depth }, { 0.0f, 1.0f, 0.0f } },
+		{ { -0.5f * width, -0.5f * height, -0.5f * depth }, { 0.0f, 1.0f, 0.0f } },
 
 		//Top face
-		{ { -0.5f * width, +0.5f * height, -0.5f * depth }, { 0.0f,  1.0f, 0.0f } },
-		{ { +0.5f * width, +0.5f * height, -0.5f * depth }, { 0.0f,  1.0f, 0.0f } },
-		{ { +0.5f * width, +0.5f * height, +0.5f * depth }, { 0.0f,  1.0f, 0.0f } },
-		{ { -0.5f * width, +0.5f * height, +0.5f * depth }, { 0.0f,  1.0f, 0.0f } },
+		{ { -0.5f * width, +0.5f * height, -0.5f * depth }, { 0.0f,  -1.0f, 0.0f } },
+		{ { +0.5f * width, +0.5f * height, -0.5f * depth }, { 0.0f,  -1.0f, 0.0f } },
+		{ { +0.5f * width, +0.5f * height, +0.5f * depth }, { 0.0f,  -1.0f, 0.0f } },
+		{ { -0.5f * width, +0.5f * height, +0.5f * depth }, { 0.0f,  -1.0f, 0.0f } },
 	};
 }
 
 std::vector<unsigned short> mini::Mesh::BoxIdxs()
 {
+	//return {
+	//	 0, 2, 1,  0, 3, 2,
+	//	 4, 6, 5,  4, 7, 6,
+	//	 8,10, 9,  8,11,10,
+	//	12,14,13, 12,15,14,
+	//	16,18,17, 16,19,18,
+	//	20,22,21, 20,23,22
+	//};
 	return {
-		 0, 2, 1,  0, 3, 2,
-		 4, 6, 5,  4, 7, 6,
-		 8,10, 9,  8,11,10,
-		12,14,13, 12,15,14,
-		16,18,17, 16,19,18,
-		20,22,21, 20,23,22
+	 0, 1, 2,  0, 2, 3,
+	 4, 5, 6,  4, 6, 7,
+	 8, 9,10,  8,10,11,
+	12,13,14, 12,14,15,
+	16,17,18, 16,18,19,
+	20,21,22, 20,22,23
 	};
 }
 
@@ -309,12 +317,14 @@ std::vector<unsigned short> mini::Mesh::SphereIdx(unsigned int stacks, unsigned 
 std::vector<VertexPositionNormal> mini::Mesh::CylinderVerts(unsigned int stacks, unsigned int slices, float height, float radius)
 {
 	assert(stacks > 0 && slices > 1);
-	auto n = (stacks + 1) * slices;
-	vector<VertexPositionNormal> vertices(n);
+	auto sideVerts = (stacks + 1) * slices;
+	auto totalVerts = sideVerts + 2 * slices + 2;
+	std::vector<VertexPositionNormal> vertices(totalVerts);
 	auto y = height / 2;
 	auto dy = height / stacks;
 	auto dp = XM_2PI / slices;
 	auto k = 0U;
+
 	for (auto i = 0U; i <= stacks; ++i, y -= dy)
 	{
 		auto phi = 0.0f;
@@ -326,34 +336,82 @@ std::vector<VertexPositionNormal> mini::Mesh::CylinderVerts(unsigned int stacks,
 			vertices[k++].normal = XMFLOAT3(cosp, 0, sinp);
 		}
 	}
+
+	auto phi = 0.0f;
+	for (auto j = 0U; j < slices; ++j, phi += dp)
+	{
+		float sinp, cosp;
+		XMScalarSinCos(&sinp, &cosp, phi);
+		vertices[k].position = XMFLOAT3(radius * cosp, height / 2, radius * sinp);
+		vertices[k++].normal = XMFLOAT3(0, 1, 0);
+	}
+
+	phi = 0.0f;
+	for (auto j = 0U; j < slices; ++j, phi += dp)
+	{
+		float sinp, cosp;
+		XMScalarSinCos(&sinp, &cosp, phi);
+		vertices[k].position = XMFLOAT3(radius * cosp, -height / 2, radius * sinp);
+		vertices[k++].normal = XMFLOAT3(0, -1, 0);
+	}
+
+	vertices[k].position = XMFLOAT3(0, height / 2, 0);
+	vertices[k++].normal = XMFLOAT3(0, 1, 0);
+	vertices[k].position = XMFLOAT3(0, -height / 2, 0);
+	vertices[k++].normal = XMFLOAT3(0, -1, 0);
+
 	return vertices;
 }
 
 std::vector<unsigned short> mini::Mesh::CylinderIdx(unsigned int stacks, unsigned int slices)
 {
 	assert(stacks > 0 && slices > 1);
-	auto in = 6 * stacks * slices;
-	vector<unsigned short> indices(in);
+	auto in = 6 * stacks * slices + 6 * slices;
+	std::vector<unsigned short> indices;
+	indices.reserve(in);
 	auto k = 0U;
+
 	for (auto i = 0U; i < stacks; ++i)
 	{
-		auto j = 0U;
-		for (; j < slices - 1; ++j)
+		for (auto j = 0U; j < slices; ++j)
 		{
-			indices[k++] = i * slices + j;
-			indices[k++] = i * slices + j + 1;
-			indices[k++] = (i + 1) * slices + j + 1;
-			indices[k++] = i * slices + j;
-			indices[k++] = (i + 1) * slices + j + 1;
-			indices[k++] = (i + 1) * slices + j;
+			auto next = (j + 1) % slices;
+			auto a = i * slices + j;
+			auto b = i * slices + next;
+			auto c = (i + 1) * slices + j;
+			auto d = (i + 1) * slices + next;
+
+			indices.push_back(a);
+			indices.push_back(b);
+			indices.push_back(d);
+			indices.push_back(a);
+			indices.push_back(d);
+			indices.push_back(c);
 		}
-		indices[k++] = i * slices + j;
-		indices[k++] = i * slices;
-		indices[k++] = (i + 1) * slices;
-		indices[k++] = i * slices + j;
-		indices[k++] = (i + 1) * slices;
-		indices[k++] = (i + 1) * slices + j;
 	}
+
+	auto sideVerts = (stacks + 1) * slices;
+	auto top = sideVerts;
+	auto bot = top + slices;
+	auto tc = bot + slices;
+	auto bc = tc + 1;
+
+	for (auto j = 0U; j < slices; ++j)
+	{
+		auto next = (j + 1) % slices;
+		indices.push_back(tc);
+		indices.push_back(top + next);
+		indices.push_back(top + j);
+	}
+
+	for (auto j = 0U; j < slices; ++j)
+	{
+		auto next = (j + 1) % slices;
+		indices.push_back(bc);
+		indices.push_back(bot + j);
+		indices.push_back(bot + next);
+	}
+
 	return indices;
 }
 

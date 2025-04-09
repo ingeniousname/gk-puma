@@ -31,6 +31,10 @@ Puma::Puma(HINSTANCE appInstance)
 	{
 		m_manipulator[i] = Mesh::LoadMesh(m_device, L"resources/meshes/mesh" + std::to_wstring(i + 1) + L".txt");
 	}
+	
+	m_cylinder = Mesh::Cylinder(m_device, 100, 100, 3.f, 0.5f);
+	m_box = Mesh::ShadedBox(m_device, 5.f);
+	m_mirror = Mesh::DoubleRect(m_device, 1.5f, 1.f);
 
 	//World matrix of all objects
 	auto temp = XMMatrixTranslation(0.0f, 0.0f, 2.0f);
@@ -134,6 +138,19 @@ void Puma::DrawScene()
 	SetSurfaceColor({ 0.75f, 0.75f, 0.75f, 1.f });
 	for (int i = 0; i < 6; i++)
 		DrawMesh(m_manipulator[i], mtx);
+
+	SetSurfaceColor({ 0.f, 0.75f, 0.f, 1.f });
+	XMStoreFloat4x4(&mtx, XMMatrixRotationZ(XM_PIDIV2) * XMMatrixTranslation(0.f, -1.f, -1.5f));
+	DrawMesh(m_cylinder, mtx);
+
+	XMStoreFloat4x4(&mtx, XMMatrixTranslation(0.f, 1.5f, 0.f));
+	SetSurfaceColor({ 214.f / 255.f, 212.f / 255.f, 67.f / 255.f, 1.f });
+	DrawMesh(m_box, mtx);
+
+	SetSurfaceColor({ 1.f, 1.f, 1.f, 1.f });
+	XMStoreFloat4x4(&mtx, XMMatrixRotationY(XM_PIDIV2) * XMMatrixRotationZ(XM_PIDIV4) * XMMatrixTranslation(-1.5f, 0.25f, -0.5f));
+	DrawMesh(m_mirror, mtx);
+
 }
 
 void Puma::Render()
