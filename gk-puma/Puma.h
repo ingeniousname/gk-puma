@@ -34,9 +34,13 @@ namespace mini::gk2
 
 		DirectX::XMFLOAT4X4 m_projMtx;
 
+		DirectX::XMFLOAT4X4 m_manipulatorMtx[6];
+
 		dx_ptr<ID3D11RasterizerState> m_rsCullFront;
+		dx_ptr<ID3D11RasterizerState> m_rsCullBack;
 		dx_ptr<ID3D11BlendState> m_bsAlpha;
 		dx_ptr<ID3D11DepthStencilState> m_dssNoWrite;
+		dx_ptr<ID3D11DepthStencilState> m_dssStencilWrite;
 
 		dx_ptr<ID3D11InputLayout> m_inputlayout, m_particleLayout;
 
@@ -46,8 +50,14 @@ namespace mini::gk2
 
 		void UpdateCameraCB(DirectX::XMMATRIX viewMtx);
 		void UpdateCameraCB() { UpdateCameraCB(m_camera.getViewMatrix()); }
+		void HandleManipulatorInput(double dt);
 
 		void DrawMesh(const Mesh& m, DirectX::XMFLOAT4X4 worldMtx);
+		void DrawMirroredWorld();
+		void DrawMirror();
+		void DrawManipulators();
+		void DrawCylinder();
+		void DrawBox();
 
 		void SetWorldMtx(DirectX::XMFLOAT4X4 mtx);
 		void SetSurfaceColor(DirectX::XMFLOAT4 color);
