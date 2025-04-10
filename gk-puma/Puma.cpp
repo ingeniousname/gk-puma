@@ -29,7 +29,7 @@ Puma::Puma(HINSTANCE appInstance)
 	vector<unsigned short> indices;
 	for (int i = 0; i < 6; i++)
 	{
-		m_manipulator[i] = Mesh::LoadMesh(m_device, L"resources/meshes/mesh" + std::to_wstring(i + 1) + L".txt");
+		m_manipulator[i] = SMMesh::loadMesh(m_device, L"resources/meshes/mesh" + std::to_wstring(i + 1) + L".txt");
 	}
 	
 	m_cylinder = Mesh::Cylinder(m_device, 100, 100, 3.f, 0.5f);
@@ -125,6 +125,12 @@ void mini::gk2::Puma::SetShaders(const dx_ptr<ID3D11VertexShader>& vs, const dx_
 }
 
 void Puma::DrawMesh(const Mesh& m, DirectX::XMFLOAT4X4 worldMtx)
+{
+	SetWorldMtx(worldMtx);
+	m.Render(m_device.context());
+}
+
+void Puma::DrawMesh(const SMMesh& m, DirectX::XMFLOAT4X4 worldMtx)
 {
 	SetWorldMtx(worldMtx);
 	m.Render(m_device.context());

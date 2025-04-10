@@ -182,6 +182,8 @@
     <ClCompile Include="mouse.cpp" />
     <ClCompile Include="particleSystem.cpp" />
     <ClCompile Include="Puma.cpp" />
+    <ClCompile Include="SMMesh.cpp" />
+    <ClCompile Include="SMMesh.h" />
     <ClCompile Include="vertexTypes.cpp" />
     <ClCompile Include="WICTextureLoader.cpp" />
     <ClCompile Include="window.cpp" />
