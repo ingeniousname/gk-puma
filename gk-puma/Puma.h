@@ -35,12 +35,15 @@ namespace mini::gk2
 		DirectX::XMFLOAT4X4 m_projMtx;
 
 		DirectX::XMFLOAT4X4 m_manipulatorMtx[6];
+		float m_manipulatorAngle[5];
 
 		dx_ptr<ID3D11RasterizerState> m_rsCullFront;
 		dx_ptr<ID3D11RasterizerState> m_rsCullBack;
+		dx_ptr<ID3D11RasterizerState> m_rsCCW;
 		dx_ptr<ID3D11BlendState> m_bsAlpha;
 		dx_ptr<ID3D11DepthStencilState> m_dssNoWrite;
 		dx_ptr<ID3D11DepthStencilState> m_dssStencilWrite;
+		dx_ptr<ID3D11DepthStencilState> m_dssStencilTest;
 
 		dx_ptr<ID3D11InputLayout> m_inputlayout, m_particleLayout;
 
