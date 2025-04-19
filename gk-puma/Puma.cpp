@@ -37,13 +37,9 @@ Puma::Puma(HINSTANCE appInstance)
 	m_box = Mesh::ShadedBox(m_device, 5.f);
 	m_mirror = Mesh::DoubleRect(m_device, 1.5f, 1.f);
 	XMStoreFloat4x4(&m_mirrorMtx, XMMatrixRotationY(XM_PIDIV2) * XMMatrixRotationZ(XM_PIDIV4) * XMMatrixTranslation(-1.5f, 0.25f, -0.5f));
-	//World matrix of all objects
-	auto temp = XMMatrixTranslation(0.0f, 0.0f, 2.0f);
-	auto a = 0.f;
 
 	//Constant buffers content
 	UpdateBuffer(m_cbLightPos, LIGHT_POS);
-
 
 	//Render states
 	RasterizerDescription rsDesc;
@@ -62,15 +58,27 @@ Puma::Puma(HINSTANCE appInstance)
 
 	dssDesc.StencilWriteMask = 0xff;
 	dssDesc.StencilReadMask = 0xff;
+	dssDesc.BackFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+	dssDesc.BackFace.StencilPassOp = D3D11_STENCIL_OP_REPLACE;
+	dssDesc.BackFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+	dssDesc.BackFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
 	dssDesc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
 	dssDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_REPLACE;
+	dssDesc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+	dssDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
 	dssDesc.DepthEnable = true;
 	dssDesc.StencilEnable = true;
 	dssDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+
 	m_dssStencilWrite = m_device.CreateDepthStencilState(dssDesc);
 
 	dssDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
 	dssDesc.StencilEnable = true;
+	dssDesc.DepthEnable = true;
+	dssDesc.BackFace.StencilFunc = D3D11_COMPARISON_EQUAL;
+	dssDesc.BackFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+	dssDesc.BackFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+	dssDesc.BackFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
 	dssDesc.FrontFace.StencilFunc = D3D11_COMPARISON_EQUAL;
 	dssDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
 	dssDesc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
@@ -192,7 +200,7 @@ void Puma::HandleManipulatorInput(double dt)
 
 void Puma::ManipulatorAnimation(double dt)
 {
-	const float r = 0.1f;
+	const float r = 0.4f;
 	static float t = 0.f;
 	t += static_cast<float>(dt);
 	XMFLOAT3 pos = { r * cosf(t), r * sinf(t), 0.f};
@@ -306,21 +314,13 @@ void Puma::DrawMesh(const Mesh& m, DirectX::XMFLOAT4X4 worldMtx)
 void Puma::DrawMirroredWorld()
 {
 	// write mirror to stencil buffer
-	ID3D11DepthStencilState* dss = nullptr;
-	UINT val;
-	ID3D11RasterizerState* rs = nullptr;
-	m_device.context()->RSGetState(&rs);
-	m_device.context()->OMGetDepthStencilState(&dss, &val);
-	XMFLOAT4X4 mtx;
-	XMMATRIX model = XMMatrixRotationY(XM_PIDIV2) * XMMatrixRotationZ(XM_PIDIV4) * XMMatrixTranslation(-1.5f, 0.25f, -0.5f);
-	XMStoreFloat4x4(&mtx, model);
 	m_device.context()->OMSetDepthStencilState(m_dssStencilWrite.get(), 1);
-	//DrawMesh(m_mirror, mtx);
 	DrawMirror();
 	m_device.context()->OMSetDepthStencilState(m_dssStencilTest.get(), 1);
 	XMMATRIX mirror = XMMatrixScaling(1.f, 1.f, -1.f);
+	XMMATRIX model = XMLoadFloat4x4(&m_mirrorMtx);
 	XMMATRIX inv = XMMatrixInverse(nullptr, model);
-	XMMATRIX mirrorRef = model * mirror * inv;
+	XMMATRIX mirrorRef = inv * mirror * model;
 
 	m_device.context()->RSSetState(m_rsCCW.get());
 	mirrorRef = mirrorRef * m_camera.getViewMatrix();
@@ -329,16 +329,14 @@ void Puma::DrawMirroredWorld()
 	DrawBox();
 	DrawManipulators();
 	DrawCylinder();
-	m_device.context()->RSSetState(rs);
-	m_device.context()->OMSetDepthStencilState(dss, val);
+	m_device.context()->RSSetState(nullptr);
+	m_device.context()->OMSetDepthStencilState(nullptr, 0);
 }
 
 void mini::gk2::Puma::DrawMirror()
 {
-	XMFLOAT4X4 mtx;
 	SetSurfaceColor({ 1.f, 1.f, 1.f, 1.f });
-	XMStoreFloat4x4(&mtx, XMMatrixRotationY(XM_PIDIV2) * XMMatrixRotationZ(XM_PIDIV4) * XMMatrixTranslation(-1.5f, 0.25f, -0.5f));
-	DrawMesh(m_mirror, mtx);
+	DrawMesh(m_mirror, m_mirrorMtx);
 }
 
 void mini::gk2::Puma::DrawManipulators()
@@ -372,9 +370,9 @@ void Puma::DrawScene()
 	DrawMirroredWorld();
 
 	UpdateCameraCB();
-	m_device.context()->OMSetBlendState(m_bsAlpha.get(), nullptr, 0xFFFFFFFF);
-	DrawMirror();
-	m_device.context()->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
+	//m_device.context()->OMSetBlendState(m_bsAlpha.get(), nullptr, 0xFFFFFFFF);
+	//DrawMirror();
+	//m_device.context()->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
 	DrawManipulators();
 	DrawCylinder();
 	DrawBox();
