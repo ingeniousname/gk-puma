@@ -99,6 +99,16 @@ BlendDescription mini::BlendDescription::AlphaBlendDescription()
 	return desc;
 }
 
+BlendDescription mini::BlendDescription::AdditiveBlendDescription()
+{
+	BlendDescription desc;
+	desc.RenderTarget[0].BlendEnable = true;
+	desc.RenderTarget[0].SrcBlend = D3D11_BLEND_ONE;
+	desc.RenderTarget[0].DestBlend = D3D11_BLEND_ONE;
+	desc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+	return desc;
+}
+
 DepthStencilDescription::DepthStencilDescription()
 {
 	DepthEnable = true;

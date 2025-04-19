@@ -51,6 +51,7 @@ Puma::Puma(HINSTANCE appInstance)
 	rsDesc.CullMode = D3D11_CULL_BACK;
 	m_rsCullBack = m_device.CreateRasterizerState(rsDesc);
 
+	m_bsAdd = m_device.CreateBlendState(BlendDescription::AdditiveBlendDescription());
 	m_bsAlpha = m_device.CreateBlendState(BlendDescription::AlphaBlendDescription());
 	DepthStencilDescription dssDesc;
 	dssDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
@@ -58,10 +59,6 @@ Puma::Puma(HINSTANCE appInstance)
 
 	dssDesc.StencilWriteMask = 0xff;
 	dssDesc.StencilReadMask = 0xff;
-	dssDesc.BackFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
-	dssDesc.BackFace.StencilPassOp = D3D11_STENCIL_OP_REPLACE;
-	dssDesc.BackFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
-	dssDesc.BackFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
 	dssDesc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
 	dssDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_REPLACE;
 	dssDesc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
@@ -75,10 +72,6 @@ Puma::Puma(HINSTANCE appInstance)
 	dssDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
 	dssDesc.StencilEnable = true;
 	dssDesc.DepthEnable = true;
-	dssDesc.BackFace.StencilFunc = D3D11_COMPARISON_EQUAL;
-	dssDesc.BackFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
-	dssDesc.BackFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
-	dssDesc.BackFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
 	dssDesc.FrontFace.StencilFunc = D3D11_COMPARISON_EQUAL;
 	dssDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
 	dssDesc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
@@ -325,17 +318,21 @@ void Puma::DrawMirroredWorld()
 	m_device.context()->RSSetState(m_rsCCW.get());
 	mirrorRef = mirrorRef * m_camera.getViewMatrix();
 	UpdateCameraCB(mirrorRef);
-
 	DrawBox();
 	DrawManipulators();
 	DrawCylinder();
+
+	UpdateCameraCB();
 	m_device.context()->RSSetState(nullptr);
 	m_device.context()->OMSetDepthStencilState(nullptr, 0);
+	m_device.context()->OMSetBlendState(m_bsAlpha.get(), nullptr, 0xFFFFFFFF);
+	DrawMirror();
+	m_device.context()->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
 }
 
 void mini::gk2::Puma::DrawMirror()
 {
-	SetSurfaceColor({ 1.f, 1.f, 1.f, 1.f });
+	SetSurfaceColor({ 0.1f, 0.1f, 0.1f, 0.5f });
 	DrawMesh(m_mirror, m_mirrorMtx);
 }
 
@@ -369,10 +366,6 @@ void Puma::DrawScene()
 	SetShaders(m_phongVS, m_phongPS);
 	DrawMirroredWorld();
 
-	UpdateCameraCB();
-	//m_device.context()->OMSetBlendState(m_bsAlpha.get(), nullptr, 0xFFFFFFFF);
-	//DrawMirror();
-	//m_device.context()->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
 	DrawManipulators();
 	DrawCylinder();
 	DrawBox();
