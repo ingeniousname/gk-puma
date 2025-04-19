@@ -33,9 +33,11 @@ namespace mini::gk2
 		Mesh m_mirror;
 
 		DirectX::XMFLOAT4X4 m_projMtx;
+		DirectX::XMFLOAT4X4 m_mirrorMtx;
 
 		DirectX::XMFLOAT4X4 m_manipulatorMtx[6];
 		float m_manipulatorAngle[5];
+		bool m_animation;
 
 		dx_ptr<ID3D11RasterizerState> m_rsCullFront;
 		dx_ptr<ID3D11RasterizerState> m_rsCullBack;
@@ -54,6 +56,9 @@ namespace mini::gk2
 		void UpdateCameraCB(DirectX::XMMATRIX viewMtx);
 		void UpdateCameraCB() { UpdateCameraCB(m_camera.getViewMatrix()); }
 		void HandleManipulatorInput(double dt);
+		void ManipulatorAnimation(double dt);
+		void InverseKinematics(DirectX::XMFLOAT3 pos, DirectX::XMFLOAT3 normal);
+		void UpdateManipulatorMtx();
 
 		void DrawMesh(const Mesh& m, DirectX::XMFLOAT4X4 worldMtx);
 		void DrawMirroredWorld();

@@ -36,7 +36,7 @@ Puma::Puma(HINSTANCE appInstance)
 	m_cylinder = Mesh::Cylinder(m_device, 100, 100, 3.f, 0.5f);
 	m_box = Mesh::ShadedBox(m_device, 5.f);
 	m_mirror = Mesh::DoubleRect(m_device, 1.5f, 1.f);
-
+	XMStoreFloat4x4(&m_mirrorMtx, XMMatrixRotationY(XM_PIDIV2) * XMMatrixRotationZ(XM_PIDIV4) * XMMatrixTranslation(-1.5f, 0.25f, -0.5f));
 	//World matrix of all objects
 	auto temp = XMMatrixTranslation(0.0f, 0.0f, 2.0f);
 	auto a = 0.f;
@@ -129,51 +129,131 @@ void Puma::UpdateCameraCB(XMMATRIX viewMtx)
 void Puma::HandleManipulatorInput(double dt)
 {
 	KeyboardState keyboard;
-	XMMATRIX mtx[6];
 	float speed = 0.5f;
 	if (!m_keyboard.GetState(keyboard))
 		return;
+	if (keyboard.isKeyDown(DIK_C)) {
+		m_animation = !m_animation;
+	}
+
 	if (keyboard.isKeyDown(DIK_F))
 	{
 		m_manipulatorAngle[0] += speed * dt;
+		m_animation = false;
 	}
 	if (keyboard.isKeyDown(DIK_R))
 	{
 		m_manipulatorAngle[0] -= speed * dt;
+		m_animation = false;
 	}
 	if (keyboard.isKeyDown(DIK_G))
 	{
 		m_manipulatorAngle[1] += speed * dt;
+		m_animation = false;
 	}
 	if (keyboard.isKeyDown(DIK_T))
 	{
 		m_manipulatorAngle[1] -= speed * dt;
+		m_animation = false;
 	}
 	if (keyboard.isKeyDown(DIK_H))
 	{
 		m_manipulatorAngle[2] += speed * dt;
+		m_animation = false;
 	}
 	if (keyboard.isKeyDown(DIK_Y))
 	{
 		m_manipulatorAngle[2] -= speed * dt;
+		m_animation = false;
 	}
 	if (keyboard.isKeyDown(DIK_J))
 	{
 		m_manipulatorAngle[3] += speed * dt;
+		m_animation = false;
 	}
 	if (keyboard.isKeyDown(DIK_U))
 	{
 		m_manipulatorAngle[3] -= speed * dt;
+		m_animation = false;
 	}
 	if (keyboard.isKeyDown(DIK_K))
 	{
 		m_manipulatorAngle[4] += speed * dt;
+		m_animation = false;
 	}
 	if (keyboard.isKeyDown(DIK_I))
 	{
 		m_manipulatorAngle[4] -= speed * dt;
+		m_animation = false;
 	}
 
+	UpdateManipulatorMtx();
+}
+
+void Puma::ManipulatorAnimation(double dt)
+{
+	const float r = 0.1f;
+	static float t = 0.f;
+	t += static_cast<float>(dt);
+	XMFLOAT3 pos = { r * cosf(t), r * sinf(t), 0.f};
+	XMFLOAT3 normal = { 0.f, 0.f, -1.f };
+
+	XMVECTOR p = XMLoadFloat3(&pos);
+	XMVECTOR n = XMLoadFloat3(&normal);
+
+	XMMATRIX mirror = XMLoadFloat4x4(&m_mirrorMtx);
+	XMMATRIX invmirror = XMMatrixInverse(nullptr, mirror);
+
+	XMVECTOR p3 = XMVector3TransformCoord(p, mirror);
+	XMVECTOR n3 = XMVector3TransformNormal(n, invmirror);
+
+	XMStoreFloat3(&pos, p3);
+	XMStoreFloat3(&normal, n3);
+
+	InverseKinematics(pos, normal);
+	UpdateManipulatorMtx();
+}
+
+void Puma::InverseKinematics(XMFLOAT3 pos, XMFLOAT3 normal)
+{
+	float l1 = .91f;
+	float l2 = .81f;
+	float l3 = .33f;
+	float dy = .27f;
+	float dz = .26f;
+
+	XMVECTOR nor = XMLoadFloat3(&normal);
+	XMVECTOR posV = XMLoadFloat3(&pos);
+	nor = XMVector3Normalize(nor);
+	XMVECTOR p1 = XMVectorAdd(posV, XMVectorScale(nor, l3));
+	XMFLOAT3 p1f;
+	XMStoreFloat3(&p1f, p1);
+
+	float e = sqrtf(p1f.x * p1f.x + p1f.z * p1f.z - dz * dz);
+	m_manipulatorAngle[0] = atan2f(p1f.z, -p1f.x) + atan2f(dz, e);
+
+	XMFLOAT3 pos2 = XMFLOAT3(e, p1f.y - dy, 0.0f);
+
+	float dot = pos2.x * pos2.x + pos2.y * pos2.y + pos2.z * pos2.z - l1 * l1 - l2 * l2;
+	float denom = 2.0f * l1 * l2;
+	m_manipulatorAngle[2] = -acosf(min(1.0f, dot / denom));
+
+	float k = l1 + l2 * cosf(m_manipulatorAngle[2]);
+	float l = l2 * sinf(m_manipulatorAngle[2]);
+	m_manipulatorAngle[1] = -atan2f(pos2.y, sqrtf(pos2.x * pos2.x + pos2.z * pos2.z)) - atan2f(l, k);
+
+	XMVECTOR normal1 = XMVector3TransformNormal(nor, XMMatrixRotationY(-m_manipulatorAngle[0]));
+	normal1 = XMVector3TransformNormal(normal1, XMMatrixRotationZ(-(m_manipulatorAngle[1] + m_manipulatorAngle[2])));
+
+	XMFLOAT3 n1;
+	XMStoreFloat3(&n1, normal1);
+	m_manipulatorAngle[4] = acosf(n1.x);
+	m_manipulatorAngle[3] = atan2f(n1.z, n1.y);
+}
+
+void mini::gk2::Puma::UpdateManipulatorMtx()
+{
+	XMMATRIX mtx[6];
 	mtx[0] = XMMatrixIdentity();
 	mtx[1] = XMMatrixRotationY(m_manipulatorAngle[0]);
 	mtx[2] = XMMatrixTranslation(0, -0.27f, 0) * XMMatrixRotationZ(m_manipulatorAngle[1]) * XMMatrixTranslation(0, 0.27f, 0) * mtx[1];
@@ -189,11 +269,16 @@ void Puma::HandleManipulatorInput(double dt)
 	XMStoreFloat4x4(&m_manipulatorMtx[5], mtx[5]);
 }
 
+
 void Puma::Update(const Clock& c)
 {
 	double dt = c.getFrameTime();
 	HandleCameraInput(dt);
 	HandleManipulatorInput(dt);
+	if (m_animation)
+	{
+		ManipulatorAnimation(dt);
+	}	
 }
 
 void Puma::SetWorldMtx(DirectX::XMFLOAT4X4 mtx)
