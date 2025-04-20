@@ -27,6 +27,9 @@ namespace mini::gk2
 		dx_ptr<ID3D11Buffer> m_cbSurfaceColor;	//pixel shader constant buffer slot 0
 		dx_ptr<ID3D11Buffer> m_cbLightPos; //pixel shader constant buffer slot 1
 
+		dx_ptr<ID3D11Buffer> m_vbParticleSystem;
+		dx_ptr<ID3D11ShaderResourceView> m_particleTexture;
+		
 		Mesh m_manipulator[6];
 		Mesh m_cylinder;
 		Mesh m_box;
@@ -39,6 +42,8 @@ namespace mini::gk2
 		float m_manipulatorAngle[5];
 		bool m_animation;
 
+		ParticleSystem m_particleSystem;
+
 		dx_ptr<ID3D11RasterizerState> m_rsCullFront;
 		dx_ptr<ID3D11RasterizerState> m_rsCullBack;
 		dx_ptr<ID3D11RasterizerState> m_rsCCW;
@@ -47,6 +52,7 @@ namespace mini::gk2
 		dx_ptr<ID3D11DepthStencilState> m_dssNoWrite;
 		dx_ptr<ID3D11DepthStencilState> m_dssStencilWrite;
 		dx_ptr<ID3D11DepthStencilState> m_dssStencilTest;
+		dx_ptr<ID3D11SamplerState> m_samplerWrap;
 
 		dx_ptr<ID3D11InputLayout> m_inputlayout, m_particleLayout;
 
@@ -60,6 +66,7 @@ namespace mini::gk2
 		void ManipulatorAnimation(double dt);
 		void InverseKinematics(DirectX::XMFLOAT3 pos, DirectX::XMFLOAT3 normal);
 		void UpdateManipulatorMtx();
+		void UpdateParticleSystem(double dt);
 
 		void DrawMesh(const Mesh& m, DirectX::XMFLOAT4X4 worldMtx);
 		void DrawMirroredWorld();
@@ -67,10 +74,14 @@ namespace mini::gk2
 		void DrawManipulators();
 		void DrawCylinder();
 		void DrawBox();
+		void DrawParticleSystem();
 
 		void SetWorldMtx(DirectX::XMFLOAT4X4 mtx);
 		void SetSurfaceColor(DirectX::XMFLOAT4 color);
 		void SetShaders(const dx_ptr<ID3D11VertexShader>& vs, const dx_ptr<ID3D11PixelShader>& ps);
+		void SetTextures(std::initializer_list<ID3D11ShaderResourceView*> resList, const dx_ptr<ID3D11SamplerState>& sampler);
+		void SetTextures(std::initializer_list<ID3D11ShaderResourceView*> resList) { SetTextures(std::move(resList), m_samplerWrap); }
+
 
 		void DrawScene();
 	};

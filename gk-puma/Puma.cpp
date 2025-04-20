@@ -15,7 +15,9 @@ Puma::Puma(HINSTANCE appInstance)
 	m_cbProjMtx(m_device.CreateConstantBuffer<XMFLOAT4X4>()),
 	m_cbViewMtx(m_device.CreateConstantBuffer<XMFLOAT4X4, 2>()),
 	m_cbSurfaceColor(m_device.CreateConstantBuffer<XMFLOAT4>()),
-	m_cbLightPos(m_device.CreateConstantBuffer<XMFLOAT4, 2>())
+	m_cbLightPos(m_device.CreateConstantBuffer<XMFLOAT4, 2>()),
+	m_vbParticleSystem(m_device.CreateVertexBuffer<ParticleVertex>(ParticleSystem::MAX_PARTICLES)),
+	m_particleTexture(m_device.CreateShaderResourceView(L"resources/textures/particle.png"))
 {
 	//Projection matrix
 	auto s = m_window.getClientSize();
@@ -54,6 +56,7 @@ Puma::Puma(HINSTANCE appInstance)
 	m_bsAdd = m_device.CreateBlendState(BlendDescription::AdditiveBlendDescription());
 	m_bsAlpha = m_device.CreateBlendState(BlendDescription::AlphaBlendDescription());
 	DepthStencilDescription dssDesc;
+	dssDesc.DepthEnable = true;
 	dssDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
 	m_dssNoWrite = m_device.CreateDepthStencilState(dssDesc);
 
@@ -78,6 +81,7 @@ Puma::Puma(HINSTANCE appInstance)
 	dssDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
 	m_dssStencilTest = m_device.CreateDepthStencilState(dssDesc);
 
+	//Textures
 
 	auto vsCode = m_device.LoadByteCode(L"phongVS.cso");
 	auto psCode = m_device.LoadByteCode(L"phongPS.cso");
@@ -213,6 +217,7 @@ void Puma::ManipulatorAnimation(double dt)
 
 	InverseKinematics(pos, normal);
 	UpdateManipulatorMtx();
+	m_particleSystem.SetEmitterPosition(pos);
 }
 
 void Puma::InverseKinematics(XMFLOAT3 pos, XMFLOAT3 normal)
@@ -270,6 +275,12 @@ void mini::gk2::Puma::UpdateManipulatorMtx()
 	XMStoreFloat4x4(&m_manipulatorMtx[5], mtx[5]);
 }
 
+void mini::gk2::Puma::UpdateParticleSystem(double dt)
+{
+	auto verts = m_particleSystem.Update(static_cast<float>(dt), m_camera.getCameraPosition());
+	UpdateBuffer(m_vbParticleSystem, verts);
+}
+
 
 void Puma::Update(const Clock& c)
 {
@@ -279,6 +290,7 @@ void Puma::Update(const Clock& c)
 	if (m_animation)
 	{
 		ManipulatorAnimation(dt);
+		UpdateParticleSystem(dt);
 	}	
 }
 
@@ -296,6 +308,13 @@ void mini::gk2::Puma::SetShaders(const dx_ptr<ID3D11VertexShader>& vs, const dx_
 {
 	m_device.context()->VSSetShader(vs.get(), nullptr, 0);
 	m_device.context()->PSSetShader(ps.get(), nullptr, 0);
+}
+
+void mini::gk2::Puma::SetTextures(std::initializer_list<ID3D11ShaderResourceView*> resList, const dx_ptr<ID3D11SamplerState>& sampler)
+{
+		m_device.context()->PSSetShaderResources(0, resList.size(), resList.begin());
+		auto s_ptr = sampler.get();
+		m_device.context()->PSSetSamplers(0, 1, &s_ptr);
 }
 
 void Puma::DrawMesh(const Mesh& m, DirectX::XMFLOAT4X4 worldMtx)
@@ -321,6 +340,7 @@ void Puma::DrawMirroredWorld()
 	DrawBox();
 	DrawManipulators();
 	DrawCylinder();
+	//DrawParticleSystem();
 
 	UpdateCameraCB();
 	m_device.context()->RSSetState(nullptr);
@@ -361,8 +381,35 @@ void mini::gk2::Puma::DrawBox()
 	DrawMesh(m_box, mtx);
 }
 
+void Puma::DrawParticleSystem()
+{
+	if (m_particleSystem.particlesCount() == 0)
+		return;
+	//Set input layout, primitive topology, shaders, vertex buffer, and draw particles
+	//m_device.context()->OMSetDepthStencilState(m_dssNoWrite.get(), 0);
+	SetTextures({ m_particleTexture.get() }, m_samplerWrap);
+	m_device.context()->OMSetBlendState(m_bsAdd.get(), nullptr, 0xFFFFFFFF);
+	m_device.context()->IASetInputLayout(m_particleLayout.get());
+	SetShaders(m_particleVS, m_particlePS);
+	m_device.context()->GSSetShader(m_particleGS.get(), nullptr, 0);
+	m_device.context()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_POINTLIST);
+	unsigned int stride = sizeof(ParticleVertex);
+	unsigned int offset = 0;
+	auto vb = m_vbParticleSystem.get();
+	m_device.context()->IASetVertexBuffers(0, 1, &vb, &stride, &offset);
+	m_device.context()->Draw(m_particleSystem.particlesCount(), 0);
+
+	//Reset layout, primitive topology and geometry shader
+	m_device.context()->GSSetShader(nullptr, nullptr, 0);
+	m_device.context()->IASetInputLayout(m_inputlayout.get());
+	m_device.context()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	m_device.context()->OMSetDepthStencilState(nullptr, 0);
+	m_device.context()->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
+}
+
 void Puma::DrawScene()
 {
+	DrawParticleSystem();
 	SetShaders(m_phongVS, m_phongPS);
 	DrawMirroredWorld();
 
