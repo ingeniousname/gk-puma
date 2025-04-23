@@ -41,6 +41,7 @@ namespace mini
 		//from previous task
 
 		static BlendDescription AlphaBlendDescription();
+		static BlendDescription AdditiveBlendDescription();
 	};
 
 	struct DepthStencilDescription : D3D11_DEPTH_STENCIL_DESC

@@ -15,7 +15,9 @@ Puma::Puma(HINSTANCE appInstance)
 	m_cbProjMtx(m_device.CreateConstantBuffer<XMFLOAT4X4>()),
 	m_cbViewMtx(m_device.CreateConstantBuffer<XMFLOAT4X4, 2>()),
 	m_cbSurfaceColor(m_device.CreateConstantBuffer<XMFLOAT4>()),
-	m_cbLightPos(m_device.CreateConstantBuffer<XMFLOAT4, 2>())
+	m_cbLightPos(m_device.CreateConstantBuffer<XMFLOAT4, 2>()),
+	m_vbParticleSystem(m_device.CreateVertexBuffer<ParticleVertex>(ParticleSystem::MAX_PARTICLES)),
+	m_particleTexture(m_device.CreateShaderResourceView(L"resources/textures/particle.png"))
 {
 	//Projection matrix
 	auto s = m_window.getClientSize();
@@ -30,29 +32,56 @@ Puma::Puma(HINSTANCE appInstance)
 	for (int i = 0; i < 6; i++)
 	{
 		m_manipulator[i] = SMMesh::LoadMesh(m_device, L"resources/meshes/mesh" + std::to_wstring(i + 1) + L".txt");
+		XMStoreFloat4x4(&m_manipulatorMtx[i], XMMatrixIdentity());
 	}
 
 	m_cylinder = Mesh::Cylinder(m_device, 100, 100, 3.f, 0.5f);
 	m_box = Mesh::ShadedBox(m_device, 5.f);
 	m_mirror = Mesh::DoubleRect(m_device, 1.5f, 1.f);
-
-	//World matrix of all objects
-	auto temp = XMMatrixTranslation(0.0f, 0.0f, 2.0f);
-	auto a = 0.f;
+	XMStoreFloat4x4(&m_mirrorMtx, XMMatrixRotationY(XM_PIDIV2) * XMMatrixRotationZ(XM_PIDIV4) * XMMatrixTranslation(-1.5f, 0.25f, -0.5f));
 
 	//Constant buffers content
 	UpdateBuffer(m_cbLightPos, LIGHT_POS);
 
-
 	//Render states
 	RasterizerDescription rsDesc;
+	rsDesc.FrontCounterClockwise = true;
+	m_rsCCW = m_device.CreateRasterizerState(rsDesc);
+	rsDesc.FrontCounterClockwise = false;
 	rsDesc.CullMode = D3D11_CULL_FRONT;
 	m_rsCullFront = m_device.CreateRasterizerState(rsDesc);
+	rsDesc.CullMode = D3D11_CULL_BACK;
+	m_rsCullBack = m_device.CreateRasterizerState(rsDesc);
 
+	m_bsAdd = m_device.CreateBlendState(BlendDescription::AdditiveBlendDescription());
 	m_bsAlpha = m_device.CreateBlendState(BlendDescription::AlphaBlendDescription());
 	DepthStencilDescription dssDesc;
+	dssDesc.DepthEnable = true;
 	dssDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
 	m_dssNoWrite = m_device.CreateDepthStencilState(dssDesc);
+
+	dssDesc.StencilWriteMask = 0xff;
+	dssDesc.StencilReadMask = 0xff;
+	dssDesc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+	dssDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_REPLACE;
+	dssDesc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+	dssDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
+	dssDesc.DepthEnable = true;
+	dssDesc.StencilEnable = true;
+	dssDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+
+	m_dssStencilWrite = m_device.CreateDepthStencilState(dssDesc);
+
+	dssDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+	dssDesc.StencilEnable = true;
+	dssDesc.DepthEnable = true;
+	dssDesc.FrontFace.StencilFunc = D3D11_COMPARISON_EQUAL;
+	dssDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+	dssDesc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+	dssDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
+	m_dssStencilTest = m_device.CreateDepthStencilState(dssDesc);
+
+	//Textures
 
 	auto vsCode = m_device.LoadByteCode(L"phongVS.cso");
 	auto psCode = m_device.LoadByteCode(L"phongPS.cso");
@@ -102,10 +131,167 @@ void Puma::UpdateCameraCB(XMMATRIX viewMtx)
 	UpdateBuffer(m_cbViewMtx, view);
 }
 
+void Puma::HandleManipulatorInput(double dt)
+{
+	KeyboardState keyboard;
+	float speed = 0.5f;
+	if (!m_keyboard.GetState(keyboard))
+		return;
+	if (keyboard.isKeyDown(DIK_C)) {
+		m_animation = !m_animation;
+	}
+
+	if (keyboard.isKeyDown(DIK_F))
+	{
+		m_manipulatorAngle[0] += speed * dt;
+		m_animation = false;
+	}
+	if (keyboard.isKeyDown(DIK_R))
+	{
+		m_manipulatorAngle[0] -= speed * dt;
+		m_animation = false;
+	}
+	if (keyboard.isKeyDown(DIK_G))
+	{
+		m_manipulatorAngle[1] += speed * dt;
+		m_animation = false;
+	}
+	if (keyboard.isKeyDown(DIK_T))
+	{
+		m_manipulatorAngle[1] -= speed * dt;
+		m_animation = false;
+	}
+	if (keyboard.isKeyDown(DIK_H))
+	{
+		m_manipulatorAngle[2] += speed * dt;
+		m_animation = false;
+	}
+	if (keyboard.isKeyDown(DIK_Y))
+	{
+		m_manipulatorAngle[2] -= speed * dt;
+		m_animation = false;
+	}
+	if (keyboard.isKeyDown(DIK_J))
+	{
+		m_manipulatorAngle[3] += speed * dt;
+		m_animation = false;
+	}
+	if (keyboard.isKeyDown(DIK_U))
+	{
+		m_manipulatorAngle[3] -= speed * dt;
+		m_animation = false;
+	}
+	if (keyboard.isKeyDown(DIK_K))
+	{
+		m_manipulatorAngle[4] += speed * dt;
+		m_animation = false;
+	}
+	if (keyboard.isKeyDown(DIK_I))
+	{
+		m_manipulatorAngle[4] -= speed * dt;
+		m_animation = false;
+	}
+
+	UpdateManipulatorMtx();
+}
+
+void Puma::ManipulatorAnimation(double dt)
+{
+	const float r = 0.4f;
+	static float t = 0.f;
+	t += static_cast<float>(dt);
+	XMFLOAT3 pos = { r * cosf(t), r * sinf(t), 0.f};
+	XMFLOAT3 normal = { 0.f, 0.f, -1.f };
+
+	XMVECTOR p = XMLoadFloat3(&pos);
+	XMVECTOR n = XMLoadFloat3(&normal);
+
+	XMMATRIX mirror = XMLoadFloat4x4(&m_mirrorMtx);
+	XMMATRIX invmirror = XMMatrixInverse(nullptr, mirror);
+
+	XMVECTOR p3 = XMVector3TransformCoord(p, mirror);
+	XMVECTOR n3 = XMVector3TransformNormal(n, invmirror);
+
+	XMStoreFloat3(&pos, p3);
+	XMStoreFloat3(&normal, n3);
+
+	InverseKinematics(pos, normal);
+	UpdateManipulatorMtx();
+	m_particleSystem.SetEmitterPosition(pos);
+}
+
+void Puma::InverseKinematics(XMFLOAT3 pos, XMFLOAT3 normal)
+{
+	float l1 = .91f;
+	float l2 = .81f;
+	float l3 = .33f;
+	float dy = .27f;
+	float dz = .26f;
+
+	XMVECTOR nor = XMLoadFloat3(&normal);
+	XMVECTOR posV = XMLoadFloat3(&pos);
+	nor = XMVector3Normalize(nor);
+	XMVECTOR p1 = XMVectorAdd(posV, XMVectorScale(nor, l3));
+	XMFLOAT3 p1f;
+	XMStoreFloat3(&p1f, p1);
+
+	float e = sqrtf(p1f.x * p1f.x + p1f.z * p1f.z - dz * dz);
+	m_manipulatorAngle[0] = atan2f(p1f.z, -p1f.x) + atan2f(dz, e);
+
+	XMFLOAT3 pos2 = XMFLOAT3(e, p1f.y - dy, 0.0f);
+
+	float dot = pos2.x * pos2.x + pos2.y * pos2.y + pos2.z * pos2.z - l1 * l1 - l2 * l2;
+	float denom = 2.0f * l1 * l2;
+	m_manipulatorAngle[2] = -acosf(min(1.0f, dot / denom));
+
+	float k = l1 + l2 * cosf(m_manipulatorAngle[2]);
+	float l = l2 * sinf(m_manipulatorAngle[2]);
+	m_manipulatorAngle[1] = -atan2f(pos2.y, sqrtf(pos2.x * pos2.x + pos2.z * pos2.z)) - atan2f(l, k);
+
+	XMVECTOR normal1 = XMVector3TransformNormal(nor, XMMatrixRotationY(-m_manipulatorAngle[0]));
+	normal1 = XMVector3TransformNormal(normal1, XMMatrixRotationZ(-(m_manipulatorAngle[1] + m_manipulatorAngle[2])));
+
+	XMFLOAT3 n1;
+	XMStoreFloat3(&n1, normal1);
+	m_manipulatorAngle[4] = acosf(n1.x);
+	m_manipulatorAngle[3] = atan2f(n1.z, n1.y);
+}
+
+void mini::gk2::Puma::UpdateManipulatorMtx()
+{
+	XMMATRIX mtx[6];
+	mtx[0] = XMMatrixIdentity();
+	mtx[1] = XMMatrixRotationY(m_manipulatorAngle[0]);
+	mtx[2] = XMMatrixTranslation(0, -0.27f, 0) * XMMatrixRotationZ(m_manipulatorAngle[1]) * XMMatrixTranslation(0, 0.27f, 0) * mtx[1];
+	mtx[3] = XMMatrixTranslation(0.91f, -0.27f, 0) * XMMatrixRotationZ(m_manipulatorAngle[2]) * XMMatrixTranslation(-0.91f, 0.27f, 0) * mtx[2];
+	mtx[4] = XMMatrixTranslation(0, -0.27f, 0.26f) * XMMatrixRotationX(m_manipulatorAngle[3]) * XMMatrixTranslation(0, 0.27f, -0.26f) * mtx[3];
+	mtx[5] = XMMatrixTranslation(1.72f, -0.27, 0) * XMMatrixRotationZ(m_manipulatorAngle[4]) * XMMatrixTranslation(-1.72f, 0.27f, 0) * mtx[4];
+
+	XMStoreFloat4x4(&m_manipulatorMtx[0], mtx[0]);
+	XMStoreFloat4x4(&m_manipulatorMtx[1], mtx[1]);
+	XMStoreFloat4x4(&m_manipulatorMtx[2], mtx[2]);
+	XMStoreFloat4x4(&m_manipulatorMtx[3], mtx[3]);
+	XMStoreFloat4x4(&m_manipulatorMtx[4], mtx[4]);
+	XMStoreFloat4x4(&m_manipulatorMtx[5], mtx[5]);
+}
+
+void mini::gk2::Puma::UpdateParticleSystem(double dt)
+{
+	auto verts = m_particleSystem.Update(static_cast<float>(dt), m_camera.getCameraPosition());
+	UpdateBuffer(m_vbParticleSystem, verts);
+}
+
+
 void Puma::Update(const Clock& c)
 {
 	double dt = c.getFrameTime();
 	HandleCameraInput(dt);
+	HandleManipulatorInput(dt);
+	if (m_animation)
+	{
+		ManipulatorAnimation(dt);
+		UpdateParticleSystem(dt);
+	}	
 }
 
 void Puma::SetWorldMtx(DirectX::XMFLOAT4X4 mtx)
@@ -124,10 +310,64 @@ void mini::gk2::Puma::SetShaders(const dx_ptr<ID3D11VertexShader>& vs, const dx_
 	m_device.context()->PSSetShader(ps.get(), nullptr, 0);
 }
 
+void mini::gk2::Puma::SetTextures(std::initializer_list<ID3D11ShaderResourceView*> resList, const dx_ptr<ID3D11SamplerState>& sampler)
+{
+		m_device.context()->PSSetShaderResources(0, resList.size(), resList.begin());
+		auto s_ptr = sampler.get();
+		m_device.context()->PSSetSamplers(0, 1, &s_ptr);
+}
+
 void Puma::DrawMesh(const Mesh& m, DirectX::XMFLOAT4X4 worldMtx)
 {
 	SetWorldMtx(worldMtx);
 	m.Render(m_device.context());
+}
+
+void Puma::DrawMirroredWorld()
+{
+	// write mirror to stencil buffer
+	m_device.context()->OMSetDepthStencilState(m_dssStencilWrite.get(), 1);
+	DrawMirror();
+	m_device.context()->OMSetDepthStencilState(m_dssStencilTest.get(), 1);
+	XMMATRIX mirror = XMMatrixScaling(1.f, 1.f, -1.f);
+	XMMATRIX model = XMLoadFloat4x4(&m_mirrorMtx);
+	XMMATRIX inv = XMMatrixInverse(nullptr, model);
+	XMMATRIX mirrorRef = inv * mirror * model;
+
+	m_device.context()->RSSetState(m_rsCCW.get());
+	mirrorRef = mirrorRef * m_camera.getViewMatrix();
+	UpdateCameraCB(mirrorRef);
+	DrawBox();
+	DrawManipulators();
+	DrawCylinder();
+	//DrawParticleSystem();
+
+	UpdateCameraCB();
+	m_device.context()->RSSetState(nullptr);
+	m_device.context()->OMSetDepthStencilState(nullptr, 0);
+	m_device.context()->OMSetBlendState(m_bsAlpha.get(), nullptr, 0xFFFFFFFF);
+	DrawMirror();
+	m_device.context()->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
+}
+
+void mini::gk2::Puma::DrawMirror()
+{
+	SetSurfaceColor({ 0.1f, 0.1f, 0.1f, 0.5f });
+	DrawMesh(m_mirror, m_mirrorMtx);
+}
+
+void mini::gk2::Puma::DrawManipulators()
+{
+	SetSurfaceColor({ 0.75f, 0.75f, 0.75f, 1.f });
+	XMFLOAT4X4 mtx;
+	XMStoreFloat4x4(&mtx, DirectX::XMMatrixIdentity());
+	for (int i = 0; i < 6; i++)
+	{
+		m_manipulator[i].GenerateShadowVolume(m_device, { LIGHT_POS.x, LIGHT_POS.y, LIGHT_POS.z }, m_manipulatorMtx[i], 10.f);
+		DrawMesh(m_manipulator[i], m_manipulatorMtx[i]);
+
+		DrawShadowVolume(m_manipulator[i], mtx);
+	}
 }
 
 void Puma::DrawMesh(const SMMesh& m, DirectX::XMFLOAT4X4 worldMtx)
@@ -142,32 +382,57 @@ void mini::gk2::Puma::DrawShadowVolume(const SMMesh& m, DirectX::XMFLOAT4X4 worl
 	m.RenderShadowVolume(m_device.context());
 }
 
-void Puma::DrawScene()
+void mini::gk2::Puma::DrawCylinder()
 {
-	SetShaders(m_phongVS, m_phongPS);
 	XMFLOAT4X4 mtx;
-	XMStoreFloat4x4(&mtx, XMMatrixIdentity());
-	SetSurfaceColor({ 0.75f, 0.75f, 0.75f, 1.f });
-
-	for (int i = 0; i < 6; i++)
-	{
-		m_manipulator[i].GenerateShadowVolume(m_device, { LIGHT_POS.x, LIGHT_POS.y, LIGHT_POS.z }, mtx, 10.f);
-		DrawMesh(m_manipulator[i], mtx);
-		DrawShadowVolume(m_manipulator[i], mtx);
-	}
-
 	SetSurfaceColor({ 0.f, 0.75f, 0.f, 1.f });
 	XMStoreFloat4x4(&mtx, XMMatrixRotationZ(XM_PIDIV2) * XMMatrixTranslation(0.f, -1.f, -1.5f));
 	DrawMesh(m_cylinder, mtx);
+}
 
+void mini::gk2::Puma::DrawBox()
+{
+	XMFLOAT4X4 mtx;
 	XMStoreFloat4x4(&mtx, XMMatrixTranslation(0.f, 1.5f, 0.f));
 	SetSurfaceColor({ 214.f / 255.f, 212.f / 255.f, 67.f / 255.f, 1.f });
 	DrawMesh(m_box, mtx);
+}
 
-	SetSurfaceColor({ 1.f, 1.f, 1.f, 1.f });
-	XMStoreFloat4x4(&mtx, XMMatrixRotationY(XM_PIDIV2) * XMMatrixRotationZ(XM_PIDIV4) * XMMatrixTranslation(-1.5f, 0.25f, -0.5f));
-	DrawMesh(m_mirror, mtx);
+void Puma::DrawParticleSystem()
+{
+	if (m_particleSystem.particlesCount() == 0)
+		return;
+	//Set input layout, primitive topology, shaders, vertex buffer, and draw particles
+	//m_device.context()->OMSetDepthStencilState(m_dssNoWrite.get(), 0);
+	SetTextures({ m_particleTexture.get() }, m_samplerWrap);
+	m_device.context()->OMSetBlendState(m_bsAdd.get(), nullptr, 0xFFFFFFFF);
+	m_device.context()->IASetInputLayout(m_particleLayout.get());
+	SetShaders(m_particleVS, m_particlePS);
+	m_device.context()->GSSetShader(m_particleGS.get(), nullptr, 0);
+	m_device.context()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_POINTLIST);
+	unsigned int stride = sizeof(ParticleVertex);
+	unsigned int offset = 0;
+	auto vb = m_vbParticleSystem.get();
+	m_device.context()->IASetVertexBuffers(0, 1, &vb, &stride, &offset);
+	m_device.context()->Draw(m_particleSystem.particlesCount(), 0);
 
+	//Reset layout, primitive topology and geometry shader
+	m_device.context()->GSSetShader(nullptr, nullptr, 0);
+	m_device.context()->IASetInputLayout(m_inputlayout.get());
+	m_device.context()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	m_device.context()->OMSetDepthStencilState(nullptr, 0);
+	m_device.context()->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
+}
+
+void Puma::DrawScene()
+{
+	DrawParticleSystem();
+	SetShaders(m_phongVS, m_phongPS);
+	DrawMirroredWorld();
+
+	DrawManipulators();
+	DrawCylinder();
+	DrawBox();
 }
 
 void Puma::Render()
@@ -176,7 +441,6 @@ void Puma::Render()
 
 	ResetRenderTarget();
 	UpdateBuffer(m_cbProjMtx, m_projMtx);
-	UpdateCameraCB();
 
 	DrawScene();
 }
