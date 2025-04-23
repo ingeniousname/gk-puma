@@ -6,10 +6,10 @@ using namespace mini;
 using namespace gk2;
 using namespace DirectX;
 using namespace std;
-const XMFLOAT4 Puma::LIGHT_POS = {2.0f, 3.0f, 3.0f, 1.0f};
+const XMFLOAT4 Puma::LIGHT_POS = { 2.0f, 3.0f, 3.0f, 1.0f };
 
 Puma::Puma(HINSTANCE appInstance)
-	: DxApplication(appInstance, 1280, 720, L"Pokój"), 
+	: DxApplication(appInstance, 1280, 720, L"Pokój"),
 	//Constant Buffers
 	m_cbWorldMtx(m_device.CreateConstantBuffer<XMFLOAT4X4>()),
 	m_cbProjMtx(m_device.CreateConstantBuffer<XMFLOAT4X4>()),
@@ -31,7 +31,7 @@ Puma::Puma(HINSTANCE appInstance)
 	{
 		m_manipulator[i] = SMMesh::LoadMesh(m_device, L"resources/meshes/mesh" + std::to_wstring(i + 1) + L".txt");
 	}
-	
+
 	m_cylinder = Mesh::Cylinder(m_device, 100, 100, 3.f, 0.5f);
 	m_box = Mesh::ShadedBox(m_device, 5.f);
 	m_mirror = Mesh::DoubleRect(m_device, 1.5f, 1.f);
@@ -148,25 +148,21 @@ void Puma::DrawScene()
 	XMFLOAT4X4 mtx;
 	XMStoreFloat4x4(&mtx, XMMatrixIdentity());
 	SetSurfaceColor({ 0.75f, 0.75f, 0.75f, 1.f });
-	
+
 	for (int i = 0; i < 6; i++)
 	{
 		m_manipulator[i].GenerateShadowVolume(m_device, { LIGHT_POS.x, LIGHT_POS.y, LIGHT_POS.z }, mtx, 10.f);
-		if (i == 1)
-		{
-			DrawMesh(m_manipulator[i], mtx);
-
-			DrawShadowVolume(m_manipulator[i], mtx);
-		}
+		DrawMesh(m_manipulator[i], mtx);
+		DrawShadowVolume(m_manipulator[i], mtx);
 	}
 
 	SetSurfaceColor({ 0.f, 0.75f, 0.f, 1.f });
 	XMStoreFloat4x4(&mtx, XMMatrixRotationZ(XM_PIDIV2) * XMMatrixTranslation(0.f, -1.f, -1.5f));
-	//DrawMesh(m_cylinder, mtx);
+	DrawMesh(m_cylinder, mtx);
 
 	XMStoreFloat4x4(&mtx, XMMatrixTranslation(0.f, 1.5f, 0.f));
 	SetSurfaceColor({ 214.f / 255.f, 212.f / 255.f, 67.f / 255.f, 1.f });
-	//DrawMesh(m_box, mtx);
+	DrawMesh(m_box, mtx);
 
 	SetSurfaceColor({ 1.f, 1.f, 1.f, 1.f });
 	XMStoreFloat4x4(&mtx, XMMatrixRotationY(XM_PIDIV2) * XMMatrixRotationZ(XM_PIDIV4) * XMMatrixTranslation(-1.5f, 0.25f, -0.5f));

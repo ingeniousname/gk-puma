@@ -68,26 +68,20 @@ void SMMesh::generateExtrudedQuadForEdgeWithCaps(
 	XMStoreFloat3(&shadowVertices[baseIndex + 3].position, p0Extruded);
 	XMStoreFloat3(&shadowVertices[baseIndex + 3].normal, extrudedNormal);
 
-	bool flipWinding = XMVectorGetX(XMVector3Dot(extrudedNormal, lightPos - p0)) > 0.0f;
+	shadowIndices.push_back(baseIndex + 0);
+	shadowIndices.push_back(baseIndex + 1);
+	shadowIndices.push_back(baseIndex + 2);
+	shadowIndices.push_back(baseIndex + 0);
+	shadowIndices.push_back(baseIndex + 2);
+	shadowIndices.push_back(baseIndex + 3);
 
-	if (flipWinding)
-	{
-		shadowIndices.push_back(baseIndex + 0);
-		shadowIndices.push_back(baseIndex + 1);
-		shadowIndices.push_back(baseIndex + 2);
-		shadowIndices.push_back(baseIndex + 0);
-		shadowIndices.push_back(baseIndex + 2);
-		shadowIndices.push_back(baseIndex + 3);
-	}
-	else
-	{
-		shadowIndices.push_back(baseIndex + 0);
-		shadowIndices.push_back(baseIndex + 2);
-		shadowIndices.push_back(baseIndex + 1);
-		shadowIndices.push_back(baseIndex + 0);
-		shadowIndices.push_back(baseIndex + 3);
-		shadowIndices.push_back(baseIndex + 2);
-	}
+	// bad doubling
+	shadowIndices.push_back(baseIndex + 0);
+	shadowIndices.push_back(baseIndex + 2);
+	shadowIndices.push_back(baseIndex + 1);
+	shadowIndices.push_back(baseIndex + 0);
+	shadowIndices.push_back(baseIndex + 3);
+	shadowIndices.push_back(baseIndex + 2);
 }
 
 void SMMesh::GenerateShadowVolume(const DxDevice& device, XMFLOAT3 lightPos, XMFLOAT4X4 worldMtx, float extrusionDistance)
