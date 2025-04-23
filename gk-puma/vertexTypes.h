@@ -25,5 +25,10 @@ namespace mini
 		DirectX::XMFLOAT3 normal;
 
 		static const D3D11_INPUT_ELEMENT_DESC Layout[2];
+		VertexPositionNormal() {}
+		VertexPositionNormal(const DirectX::XMFLOAT3& position, const DirectX::XMFLOAT3& normal)
+			: position(position), normal(normal)
+		{
+		}
 	};
 }

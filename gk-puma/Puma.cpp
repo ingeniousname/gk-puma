@@ -29,7 +29,7 @@ Puma::Puma(HINSTANCE appInstance)
 	vector<unsigned short> indices;
 	for (int i = 0; i < 6; i++)
 	{
-		m_manipulator[i] = SMMesh::loadMesh(m_device, L"resources/meshes/mesh" + std::to_wstring(i + 1) + L".txt");
+		m_manipulator[i] = SMMesh::LoadMesh(m_device, L"resources/meshes/mesh" + std::to_wstring(i + 1) + L".txt");
 	}
 	
 	m_cylinder = Mesh::Cylinder(m_device, 100, 100, 3.f, 0.5f);
@@ -136,22 +136,37 @@ void Puma::DrawMesh(const SMMesh& m, DirectX::XMFLOAT4X4 worldMtx)
 	m.Render(m_device.context());
 }
 
+void mini::gk2::Puma::DrawShadowVolume(const SMMesh& m, DirectX::XMFLOAT4X4 worldMtx)
+{
+	SetWorldMtx(worldMtx);
+	m.RenderShadowVolume(m_device.context());
+}
+
 void Puma::DrawScene()
 {
 	SetShaders(m_phongVS, m_phongPS);
 	XMFLOAT4X4 mtx;
 	XMStoreFloat4x4(&mtx, XMMatrixIdentity());
 	SetSurfaceColor({ 0.75f, 0.75f, 0.75f, 1.f });
+	
 	for (int i = 0; i < 6; i++)
-		DrawMesh(m_manipulator[i], mtx);
+	{
+		m_manipulator[i].GenerateShadowVolume(m_device, { LIGHT_POS.x, LIGHT_POS.y, LIGHT_POS.z }, mtx, 10.f);
+		if (i == 1)
+		{
+			DrawMesh(m_manipulator[i], mtx);
+
+			DrawShadowVolume(m_manipulator[i], mtx);
+		}
+	}
 
 	SetSurfaceColor({ 0.f, 0.75f, 0.f, 1.f });
 	XMStoreFloat4x4(&mtx, XMMatrixRotationZ(XM_PIDIV2) * XMMatrixTranslation(0.f, -1.f, -1.5f));
-	DrawMesh(m_cylinder, mtx);
+	//DrawMesh(m_cylinder, mtx);
 
 	XMStoreFloat4x4(&mtx, XMMatrixTranslation(0.f, 1.5f, 0.f));
 	SetSurfaceColor({ 214.f / 255.f, 212.f / 255.f, 67.f / 255.f, 1.f });
-	DrawMesh(m_box, mtx);
+	//DrawMesh(m_box, mtx);
 
 	SetSurfaceColor({ 1.f, 1.f, 1.f, 1.f });
 	XMStoreFloat4x4(&mtx, XMMatrixRotationY(XM_PIDIV2) * XMMatrixRotationZ(XM_PIDIV4) * XMMatrixTranslation(-1.5f, 0.25f, -0.5f));

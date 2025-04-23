@@ -50,6 +50,7 @@ namespace mini::gk2
 
 		void DrawMesh(const Mesh& m, DirectX::XMFLOAT4X4 worldMtx);
 		void DrawMesh(const SMMesh& m, DirectX::XMFLOAT4X4 worldMtx);
+		void DrawShadowVolume(const SMMesh& m, DirectX::XMFLOAT4X4 worldMtx);
 
 		void SetWorldMtx(DirectX::XMFLOAT4X4 mtx);
 		void SetSurfaceColor(DirectX::XMFLOAT4 color);
