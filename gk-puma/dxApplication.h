@@ -59,11 +59,12 @@ namespace mini
 		static constexpr float MOVE_SPEED = 8.f;
 
 		FPSCamera m_camera;
+	protected:
+		mini::dx_ptr<ID3D11DepthStencilView> m_depthBuffer;
 
 	private:
 
 		mini::dx_ptr<ID3D11RenderTargetView> m_backBuffer;
-		mini::dx_ptr<ID3D11DepthStencilView> m_depthBuffer;
 		Viewport m_viewport;
 		Clock m_clock;
 

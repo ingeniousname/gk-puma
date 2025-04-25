@@ -42,6 +42,7 @@ class SMMesh
 		const Edge& edge,
 		const std::vector<VertexPositionNormal>& worldVertices,
 		const XMVECTOR& lightPos,
+		const XMVECTOR& insideReference,
 		float extrusionDistance,
 		std::vector<VertexPositionNormal>& shadowVertices,
 		std::vector<unsigned short>& shadowIndices
