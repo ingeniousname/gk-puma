@@ -380,9 +380,11 @@ void Puma::DrawMesh(const Mesh& m, DirectX::XMFLOAT4X4 worldMtx)
 void Puma::DrawMirroredWorld()
 {
 	// write mirror to stencil buffer
+	m_device.context()->OMSetBlendState(m_bsNoColor.get(), nullptr, 0xFFFFFFFF);
 	m_device.context()->OMSetDepthStencilState(m_dssStencilWrite.get(), 1);
 	DrawMirror();
 	m_device.context()->OMSetDepthStencilState(m_dssStencilTest.get(), 1);
+	m_device.context()->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
 	XMMATRIX mirror = XMMatrixScaling(1.f, 1.f, -1.f);
 	XMMATRIX model = XMLoadFloat4x4(&m_mirrorMtx);
 	XMMATRIX inv = XMMatrixInverse(nullptr, model);
@@ -475,10 +477,7 @@ void Puma::DrawParticleSystem()
 
 void Puma::DrawScene()
 {
-	//DrawParticleSystem();
 	SetShaders(m_phongVS, m_phongPS);
-	//DrawMirroredWorld();
-	DrawMirror();
 
 	DrawManipulators();
 	DrawCylinder();
@@ -491,6 +490,7 @@ void Puma::Render()
 
 	ResetRenderTarget();
 	UpdateBuffer(m_cbProjMtx, m_projMtx);
+
 
 	// render with no light
 	UpdateBuffer(m_cbShadowControl, XMINT4(1, 1, 1, 1));
@@ -519,4 +519,8 @@ void Puma::Render()
 	DrawScene();
 
 	m_device.context()->OMSetDepthStencilState(nullptr, 0);
+	m_device.context()->ClearDepthStencilView(m_depthBuffer.get(),
+		D3D11_CLEAR_STENCIL, 1.0f, 0);
+	DrawMirroredWorld();
+	//DrawParticleSystem();
 }
