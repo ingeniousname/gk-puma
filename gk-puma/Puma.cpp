@@ -459,7 +459,12 @@ void Puma::DrawParticleSystem()
 	if (m_particleSystem.particlesCount() == 0)
 		return;
 	//Set input layout, primitive topology, shaders, vertex buffer, and draw particles
-	//m_device.context()->OMSetDepthStencilState(m_dssNoWrite.get(), 0);
+	ID3D11DepthStencilState* stencilState = nullptr;
+	UINT stencilRef = 0;
+	ID3D11BlendState* blendState = nullptr;
+	m_device.context()->OMGetBlendState(&blendState, nullptr, nullptr);
+	m_device.context()->OMGetDepthStencilState(&stencilState, &stencilRef);
+	m_device.context()->OMSetDepthStencilState(m_dssNoWrite.get(), 0);
 	SetTextures({ m_particleTexture.get() }, m_samplerWrap);
 	m_device.context()->OMSetBlendState(m_bsAdd.get(), nullptr, 0xFFFFFFFF);
 	m_device.context()->IASetInputLayout(m_particleLayout.get());
@@ -476,8 +481,8 @@ void Puma::DrawParticleSystem()
 	m_device.context()->GSSetShader(nullptr, nullptr, 0);
 	m_device.context()->IASetInputLayout(m_inputlayout.get());
 	m_device.context()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	m_device.context()->OMSetDepthStencilState(nullptr, 0);
-	m_device.context()->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
+	m_device.context()->OMSetDepthStencilState(stencilState, stencilRef);
+	m_device.context()->OMSetBlendState(blendState, nullptr, 0xFFFFFFFF);
 	SetShaders(m_phongVS, m_phongPS);
 }
 
