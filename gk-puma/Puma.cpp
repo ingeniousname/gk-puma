@@ -500,12 +500,11 @@ void Puma::Render()
 	m_device.context()->ClearDepthStencilView(m_depthBuffer.get(),
 		D3D11_CLEAR_STENCIL, 1.0f, 0);
 
-	DrawParticleSystem();
 
 	// render with no light
 	UpdateBuffer(m_cbShadowControl, XMINT4(1, 1, 1, 1));
 	DrawScene();
-
+	
 	m_device.context()->OMSetDepthStencilState(m_dssStencilShadowVolume.get(), 1);
 	m_device.context()->OMSetBlendState(m_bsNoColor.get(), nullptr, 0xFFFFFFFF);
 	m_device.context()->RSSetState(m_rsCullFront.get());
@@ -524,6 +523,7 @@ void Puma::Render()
 	// draw light where stencil == 0
 	UpdateBuffer(m_cbShadowControl, XMINT4(0, 0, 0, 0));
 	DrawScene();
+	DrawParticleSystem();
 
 	m_device.context()->OMSetDepthStencilState(nullptr, 0);
 
