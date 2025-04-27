@@ -1,5 +1,6 @@
 #include "SMMesh.h"
 #include <fstream>
+#include <map>
 
 using namespace std;
 
@@ -93,6 +94,198 @@ void SMMesh::generateExtrudedQuadForEdgeWithCaps(
 	shadowIndices.push_back(baseIndex + 3);
 	shadowIndices.push_back(baseIndex + 2);
 
+}
+
+void SMMesh::AddEdge(std::map<std::pair<unsigned short, unsigned short>, Edge>& edgeMap, unsigned short v0, unsigned short v1, unsigned short face)
+{
+	auto key = std::minmax(v0, v1); // Always (smaller, larger) to avoid duplicates
+	auto it = edgeMap.find(key);
+	if (it == edgeMap.end())
+	{
+		// New edge
+		edgeMap[key] = Edge(key.first, key.second, face, UINT_MAX);
+	}
+	else
+	{
+		// Existing edge, fill second face
+		it->second.face1 = face;
+	}
+}
+
+void SMMesh::CylinderPositions(unsigned int stacks, unsigned int slices, float height, float radius)
+{
+	assert(stacks > 0 && slices > 1);
+
+	positions.reserve((stacks + 1) * slices + 2);
+
+	float halfHeight = height / 2.0f;
+	float dp = XM_2PI / slices;
+	float dy = height / stacks;
+
+	for (unsigned int i = 0; i <= stacks; ++i)
+	{
+		float y = halfHeight - i * dy;
+		for (unsigned int j = 0; j < slices; ++j)
+		{
+			float sinp, cosp;
+			XMScalarSinCos(&sinp, &cosp, j * dp);
+			positions.emplace_back(radius * cosp, y, radius * sinp);
+		}
+	}
+
+	positions.emplace_back(0.0f, halfHeight, 0.0f);
+
+	positions.emplace_back(0.0f, -halfHeight, 0.0f);
+}
+
+std::vector<unsigned short> SMMesh::CylinderVerts(unsigned int stacks, unsigned int slices, float height, float radius)
+{
+	std::vector<unsigned short> vertexPosMapping;
+	vertices.reserve(positions.size());
+
+
+	auto sideVerts = (stacks + 1) * slices;
+	auto topCenter = sideVerts;
+	auto bottomCenter = sideVerts + 1;
+
+	for (unsigned int i = 0; i < sideVerts; ++i)
+	{
+		auto& pos = positions[i];
+
+		// Normal is just (x, 0, z) normalized
+		XMFLOAT3 normal(pos.x, 0.0f, pos.z);
+		XMStoreFloat3(&normal, XMVector3Normalize(XMLoadFloat3(&normal)));
+
+		vertices.push_back({ pos, normal });
+		vertexPosMapping.push_back(i);
+	}
+
+	for (unsigned int j = 0; j < slices; ++j)
+	{
+		const auto& pos = positions[j];
+		vertices.push_back({ pos, XMFLOAT3(0.0f, 1.0f, 0.0f) });
+		vertexPosMapping.push_back(j);
+	}
+
+	vertices.push_back({ positions[topCenter], XMFLOAT3(0.0f, 1.0f, 0.0f) });
+	vertexPosMapping.push_back(topCenter);
+
+	unsigned int bottomStart = (stacks)*slices;
+	for (unsigned int j = 0; j < slices; ++j)
+	{
+		const auto& pos = positions[bottomStart + j];
+		vertices.push_back({ pos, XMFLOAT3(0.0f, -1.0f, 0.0f) });
+		vertexPosMapping.push_back(bottomStart + j);
+	}
+
+	// Bottom center vertex
+	vertices.push_back({ positions[bottomCenter], XMFLOAT3(0.0f, -1.0f, 0.0f) });
+	vertexPosMapping.push_back(bottomCenter);
+
+	return vertexPosMapping;
+}
+
+std::vector<unsigned short> SMMesh::CylinderIdx(unsigned int stacks, unsigned int slices, const std::vector<unsigned short>& vertexPosMapping)
+{
+	assert(vertexPosMapping.size() == vertices.size());
+	std::vector<unsigned short> indices;
+	std::map<std::pair<unsigned short, unsigned short>, Edge> edgeMap;
+	unsigned faceIndex = 0;
+
+	unsigned int sideVerts = (stacks + 1) * slices;
+	unsigned int topRingStart = sideVerts;
+	unsigned int topCenterIndex = topRingStart + slices;
+	unsigned int bottomRingStart = topCenterIndex + 1;
+	unsigned int bottomCenterIndex = bottomRingStart + slices;
+
+	// === Sides ===
+	for (unsigned int i = 0; i < stacks; ++i)
+	{
+		for (unsigned int j = 0; j < slices; ++j)
+		{
+			unsigned int next = (j + 1) % slices;
+			unsigned int a = i * slices + j;
+			unsigned int b = i * slices + next;
+			unsigned int c = (i + 1) * slices + j;
+			unsigned int d = (i + 1) * slices + next;
+
+			unsigned int va = vertexPosMapping[a];
+			unsigned int vb = vertexPosMapping[b];
+			unsigned int vc = vertexPosMapping[c];
+			unsigned int vd = vertexPosMapping[d];
+
+			indices.push_back(a);
+			indices.push_back(b);
+			indices.push_back(d);
+			faces.emplace_back(a, b, d);
+			AddEdge(edgeMap, va, vb, faceIndex);
+			AddEdge(edgeMap, vb, vd, faceIndex);
+			AddEdge(edgeMap, vd, va, faceIndex);
+			++faceIndex;
+
+			indices.push_back(a);
+			indices.push_back(d);
+			indices.push_back(c);
+			faces.emplace_back(a, d, c);
+			AddEdge(edgeMap, va, vd, faceIndex);
+			AddEdge(edgeMap, vd, vc, faceIndex);
+			AddEdge(edgeMap, vc, va, faceIndex);
+			++faceIndex;
+		}
+	}
+
+	// === Top cap ===
+	for (unsigned int j = 0; j < slices; ++j)
+	{
+		unsigned int next = (j + 1) % slices;
+		unsigned int v0 = topRingStart + j;
+		unsigned int v1 = topCenterIndex;
+		unsigned int v2 = topRingStart + next;
+
+		unsigned int va = vertexPosMapping[v0];
+		unsigned int vb = vertexPosMapping[v1];
+		unsigned int vc = vertexPosMapping[v2];
+
+		indices.push_back(v0);
+		indices.push_back(v1);
+		indices.push_back(v2);
+		faces.emplace_back(v0, v1, v2);
+		AddEdge(edgeMap, va, vb, faceIndex);
+		AddEdge(edgeMap, vb, vc, faceIndex);
+		AddEdge(edgeMap, vc, va, faceIndex);
+		++faceIndex;
+	}
+
+	// === Bottom cap ===
+	for (unsigned int j = 0; j < slices; ++j)
+	{
+		unsigned int next = (j + 1) % slices;
+		unsigned int v0 = bottomRingStart + next;
+		unsigned int v1 = bottomCenterIndex;
+		unsigned int v2 = bottomRingStart + j;
+
+		unsigned int va = vertexPosMapping[v0];
+		unsigned int vb = vertexPosMapping[v1];
+		unsigned int vc = vertexPosMapping[v2];
+
+		indices.push_back(v0);
+		indices.push_back(v1);
+		indices.push_back(v2);
+		faces.emplace_back(v0, v1, v2);
+		AddEdge(edgeMap, va, vb, faceIndex);
+		AddEdge(edgeMap, vb, vc, faceIndex);
+		AddEdge(edgeMap, vc, va, faceIndex);
+		++faceIndex;
+	}
+
+	// === Edges ===
+	edges.reserve(edgeMap.size());
+	for (auto& [_, edge] : edgeMap)
+	{
+		edges.push_back(edge);
+	}
+
+	return indices;
 }
 
 void SMMesh::GenerateShadowVolume(const DxDevice& device, XMFLOAT3 lightPos, XMFLOAT4X4 worldMtx, float extrusionDistance)
@@ -232,4 +425,16 @@ SMMesh SMMesh::LoadMesh(const DxDevice& device, const std::wstring& meshPath)
 	input.close();
 	mesh.mesh = Mesh::SimpleTriMesh(device, mesh.vertices, indices);
 	return mesh;
+}
+
+SMMesh SMMesh::Cylinder(const DxDevice& device, unsigned int stacks, unsigned int slices, float height, float radius)
+{
+	SMMesh cylinder;
+	cylinder.CylinderPositions(stacks, slices, height, radius);
+	auto vertexPosMapping = cylinder.CylinderVerts(stacks, slices, height, radius);
+	auto indices = cylinder.CylinderIdx(stacks, slices, vertexPosMapping);
+
+	cylinder.mesh = Mesh::SimpleTriMesh(device, cylinder.vertices, indices);
+
+	return cylinder;
 }

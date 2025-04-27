@@ -33,7 +33,7 @@ namespace mini::gk2
 		dx_ptr<ID3D11ShaderResourceView> m_particleTexture;
 		
 		SMMesh m_manipulator[6];
-		Mesh m_cylinder;
+		SMMesh m_cylinder;
 		Mesh m_box;
 		Mesh m_mirror;
 
@@ -41,6 +41,7 @@ namespace mini::gk2
 		DirectX::XMFLOAT4X4 m_mirrorMtx;
 
 		DirectX::XMFLOAT4X4 m_manipulatorMtx[6];
+		DirectX::XMFLOAT4X4 m_cylinderMtx;
 		float m_manipulatorAngle[5];
 		bool m_animation;
 

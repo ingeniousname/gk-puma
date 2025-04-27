@@ -2,6 +2,7 @@
 #include "DirectXMath.h"
 #include "mesh.h"
 #include "vertexTypes.h"
+#include <map> 
 
 using namespace DirectX;
 using namespace mini;
@@ -49,11 +50,18 @@ class SMMesh
 		std::vector<VertexPositionNormal>& shadowVertices,
 		std::vector<unsigned short>& shadowIndices
 	);
+
+	void AddEdge(std::map<std::pair<unsigned short, unsigned short>, Edge>& edgeMap, unsigned short v0, unsigned short v1, unsigned short face);
+	void CylinderPositions(unsigned int stacks, unsigned int slices, float height, float radius);
+	std::vector<unsigned short> CylinderVerts(unsigned int stacks, unsigned int slices, float height, float radius);
+	std::vector<unsigned short> CylinderIdx(unsigned int stacks, unsigned int slices, const std::vector<unsigned short>& vertexPositionMapping);
 public:
 	void Render(const dx_ptr<ID3D11DeviceContext>& context) const;
 	void RenderShadowVolume(const dx_ptr<ID3D11DeviceContext>& context) const;
 	void GenerateShadowVolume(const DxDevice& device, XMFLOAT3 lightPos, XMFLOAT4X4 worldMtx, float extrusionDistance);
 	static SMMesh LoadMesh(const DxDevice& device, const std::wstring& meshPath);
+
+	static SMMesh Cylinder(const DxDevice& device, unsigned int stacks, unsigned int slices, float height, float radius);
 	
 };
 

@@ -36,7 +36,7 @@ Puma::Puma(HINSTANCE appInstance)
 		XMStoreFloat4x4(&m_manipulatorMtx[i], XMMatrixIdentity());
 	}
 
-	m_cylinder = Mesh::Cylinder(m_device, 100, 100, 3.f, 0.5f);
+	m_cylinder = SMMesh::Cylinder(m_device, 20, 20, 3.f, 0.5f);
 	m_box = Mesh::ShadedBox(m_device, 5.f);
 	m_mirror = Mesh::DoubleRect(m_device, 1.5f, 1.f);
 	XMStoreFloat4x4(&m_mirrorMtx, XMMatrixRotationY(XM_PIDIV2) * XMMatrixRotationZ(XM_PIDIV4) * XMMatrixTranslation(-1.5f, 0.25f, -0.5f));
@@ -411,10 +411,9 @@ void mini::gk2::Puma::DrawShadowVolume(const SMMesh& m, DirectX::XMFLOAT4X4 worl
 
 void mini::gk2::Puma::DrawCylinder()
 {
-	XMFLOAT4X4 mtx;
 	SetSurfaceColor({ 0.f, 0.75f, 0.f, 1.f });
-	XMStoreFloat4x4(&mtx, XMMatrixRotationZ(XM_PIDIV2) * XMMatrixTranslation(0.f, -1.f, -1.5f));
-	DrawMesh(m_cylinder, mtx);
+	XMStoreFloat4x4(&m_cylinderMtx, XMMatrixRotationZ(XM_PIDIV2) * XMMatrixTranslation(0.f, -1.f, -1.5f));
+	DrawMesh(m_cylinder, m_cylinderMtx);
 }
 
 void mini::gk2::Puma::DrawBox()
@@ -483,6 +482,9 @@ void Puma::Render()
 		m_manipulator[i].GenerateShadowVolume(m_device, { LIGHT_POS.x, LIGHT_POS.y, LIGHT_POS.z }, m_manipulatorMtx[i], 10.f);
 		DrawShadowVolume(m_manipulator[i], mtx);
 	}
+	m_cylinder.GenerateShadowVolume(m_device, { LIGHT_POS.x, LIGHT_POS.y, LIGHT_POS.z }, m_cylinderMtx, 10.f);
+	DrawShadowVolume(m_cylinder, mtx);
+	
 
 
 	UpdateBuffer(m_cbShadowControl, XMINT4(0, 0, 0, 0));
@@ -491,6 +493,7 @@ void Puma::Render()
 	{
 		DrawShadowVolume(m_manipulator[i], mtx);
 	}
+	DrawShadowVolume(m_cylinder, mtx);
 
 	// Third pass: render lit areas
 	m_device.context()->OMSetDepthStencilState(m_dssStencilTest.get(), 0);
