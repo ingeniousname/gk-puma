@@ -47,6 +47,7 @@ namespace mini::gk2
 
 		ParticleSystem m_particleSystem;
 
+		dx_ptr<ID3D11RasterizerState> m_rsNoCull;
 		dx_ptr<ID3D11RasterizerState> m_rsCullFront;
 		dx_ptr<ID3D11RasterizerState> m_rsCullBack;
 		dx_ptr<ID3D11RasterizerState> m_rsCCW;
