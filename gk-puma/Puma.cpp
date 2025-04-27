@@ -75,6 +75,7 @@ Puma::Puma(HINSTANCE appInstance)
 	m_dssStencilWrite = m_device.CreateDepthStencilState(dssDesc);
 
 	dssDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+	dssDesc.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
 	dssDesc.StencilEnable = true;
 	dssDesc.DepthEnable = true;
 	dssDesc.FrontFace.StencilFunc = D3D11_COMPARISON_EQUAL;
@@ -396,8 +397,10 @@ void Puma::DrawMirroredWorld()
 	DrawBox();
 	DrawManipulators();
 	DrawCylinder();
-	//DrawParticleSystem();
-
+	DrawParticleSystem();
+	
+	
+	UpdateCameraCB();
 	m_device.context()->RSSetState(nullptr);
 	m_device.context()->OMSetDepthStencilState(nullptr, 0);
 	m_device.context()->OMSetBlendState(m_bsAlpha.get(), nullptr, 0xFFFFFFFF);
@@ -473,6 +476,7 @@ void Puma::DrawParticleSystem()
 	m_device.context()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	m_device.context()->OMSetDepthStencilState(nullptr, 0);
 	m_device.context()->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
+	SetShaders(m_phongVS, m_phongPS);
 }
 
 void Puma::DrawScene()
@@ -490,12 +494,17 @@ void Puma::Render()
 
 	ResetRenderTarget();
 	UpdateBuffer(m_cbProjMtx, m_projMtx);
+	SetShaders(m_phongVS, m_phongPS);
 
+	DrawMirroredWorld();
+	m_device.context()->ClearDepthStencilView(m_depthBuffer.get(),
+		D3D11_CLEAR_STENCIL, 1.0f, 0);
+
+	DrawParticleSystem();
 
 	// render with no light
 	UpdateBuffer(m_cbShadowControl, XMINT4(1, 1, 1, 1));
 	DrawScene();
-
 
 	m_device.context()->OMSetDepthStencilState(m_dssStencilShadowVolume.get(), 1);
 	m_device.context()->OMSetBlendState(m_bsNoColor.get(), nullptr, 0xFFFFFFFF);
@@ -511,16 +520,11 @@ void Puma::Render()
 
 	m_device.context()->OMSetDepthStencilState(m_dssStencilTest.get(), 0);
 	m_device.context()->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
-	m_device.context()->ClearDepthStencilView(m_depthBuffer.get(),
-		D3D11_CLEAR_DEPTH, 1.0f, 0);
 
 	// draw light where stencil == 0
 	UpdateBuffer(m_cbShadowControl, XMINT4(0, 0, 0, 0));
 	DrawScene();
 
 	m_device.context()->OMSetDepthStencilState(nullptr, 0);
-	m_device.context()->ClearDepthStencilView(m_depthBuffer.get(),
-		D3D11_CLEAR_STENCIL, 1.0f, 0);
-	DrawMirroredWorld();
-	//DrawParticleSystem();
+
 }

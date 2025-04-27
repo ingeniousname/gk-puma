@@ -54,6 +54,7 @@ namespace mini::gk2
 		dx_ptr<ID3D11BlendState> m_bsNoColor;
 		dx_ptr<ID3D11BlendState> m_bsAdd;
 		dx_ptr<ID3D11DepthStencilState> m_dssNoWrite;
+		dx_ptr<ID3D11DepthStencilState> m_dssDepthWriteOnly;
 		dx_ptr<ID3D11DepthStencilState> m_dssStencilWrite;
 		dx_ptr<ID3D11DepthStencilState> m_dssStencilTest;
 		dx_ptr<ID3D11DepthStencilState> m_dssStencilShadowVolume;
