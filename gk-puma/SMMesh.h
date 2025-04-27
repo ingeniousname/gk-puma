@@ -34,15 +34,17 @@ class SMMesh
 {
 	Mesh mesh;
 	Mesh shadowMesh;
+	std::vector<XMFLOAT3> positions;
 	std::vector<VertexPositionNormal> vertices;
 	std::vector<Edge> edges;
 	std::vector<Face> faces;
 	bool FacingFront(const Face& face, const XMVECTOR& lightPos, const std::vector<VertexPositionNormal>& worldVertices);
+	bool isEdgeOriented(unsigned v0, unsigned v1, const Face& face);
+	bool SameFloat3(XMFLOAT3 v1, XMFLOAT3 v2);
 	void generateExtrudedQuadForEdgeWithCaps(
 		const Edge& edge,
-		const std::vector<VertexPositionNormal>& worldVertices,
+		const std::vector<XMFLOAT3>& worldPositions,
 		const XMVECTOR& lightPos,
-		const XMVECTOR& insideReference,
 		float extrusionDistance,
 		std::vector<VertexPositionNormal>& shadowVertices,
 		std::vector<unsigned short>& shadowIndices

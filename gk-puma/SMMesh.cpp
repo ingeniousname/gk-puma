@@ -17,6 +17,24 @@ bool SMMesh::FacingFront(const Face& face, const XMVECTOR& lightPos, const std::
 
 }
 
+bool SMMesh::isEdgeOriented(unsigned v0, unsigned v1, const Face& face)
+{
+	for (int i = 0; i < 3; ++i) {
+		unsigned a = face.indices[i];
+		unsigned b = face.indices[(i + 1) % 3];
+		if (SameFloat3(vertices[a].position, positions[v0]) && SameFloat3(vertices[b].position, positions[v1]))
+			return true; 
+		if (SameFloat3(vertices[a].position, positions[v1]) && SameFloat3(vertices[b].position, positions[v0]))
+			return false;
+	}
+	return true;
+}
+
+bool SMMesh::SameFloat3(XMFLOAT3 v1, XMFLOAT3 v2)
+{
+	return std::abs(v1.x - v2.x) + std::abs(v1.y - v2.y) + std::abs(v1.z - v2.z) < 1e-5;
+}
+
 void SMMesh::Render(const dx_ptr<ID3D11DeviceContext>& context) const
 {
 	mesh.Render(context);
@@ -29,9 +47,8 @@ void SMMesh::RenderShadowVolume(const dx_ptr<ID3D11DeviceContext>& context) cons
 
 void SMMesh::generateExtrudedQuadForEdgeWithCaps(
 	const Edge& edge,
-	const std::vector<VertexPositionNormal>& worldVertices,
+	const std::vector<XMFLOAT3>& worldPositions,
 	const XMVECTOR& lightPos,
-	const XMVECTOR& insideReference,
 	float extrusionDistance,
 	std::vector<VertexPositionNormal>& shadowVertices,
 	std::vector<unsigned short>& shadowIndices
@@ -39,8 +56,8 @@ void SMMesh::generateExtrudedQuadForEdgeWithCaps(
 	int baseIndex = shadowVertices.size();
 
 	// Load vertex positions
-	XMVECTOR p0 = XMLoadFloat3(&worldVertices[edge.v0].position);
-	XMVECTOR p1 = XMLoadFloat3(&worldVertices[edge.v1].position);
+	XMVECTOR p0 = XMLoadFloat3(&worldPositions[edge.v0]);
+	XMVECTOR p1 = XMLoadFloat3(&worldPositions[edge.v1]);
 
 	// Direction from vertex to light
 	XMVECTOR dir0 = XMVector3Normalize(p0 - lightPos);
@@ -69,55 +86,35 @@ void SMMesh::generateExtrudedQuadForEdgeWithCaps(
 	XMStoreFloat3(&shadowVertices[baseIndex + 3].position, p0Extruded);
 	XMStoreFloat3(&shadowVertices[baseIndex + 3].normal, extrudedNormal);
 
-	auto c = XMVectorGetX(XMVector3Dot(extrudedNormal, insideReference - p0));
+	shadowIndices.push_back(baseIndex + 0);
+	shadowIndices.push_back(baseIndex + 2);
+	shadowIndices.push_back(baseIndex + 1);
+	shadowIndices.push_back(baseIndex + 0);
+	shadowIndices.push_back(baseIndex + 3);
+	shadowIndices.push_back(baseIndex + 2);
 
-	if (c > 0.0)
-	{
-		shadowIndices.push_back(baseIndex + 0);
-		shadowIndices.push_back(baseIndex + 1);
-		shadowIndices.push_back(baseIndex + 2);
-		shadowIndices.push_back(baseIndex + 0);
-		shadowIndices.push_back(baseIndex + 2);
-		shadowIndices.push_back(baseIndex + 3);
-
-	}
-	else
-	{
-
-		shadowIndices.push_back(baseIndex + 0);
-		shadowIndices.push_back(baseIndex + 2);
-		shadowIndices.push_back(baseIndex + 1);
-		shadowIndices.push_back(baseIndex + 0);
-		shadowIndices.push_back(baseIndex + 3);
-		shadowIndices.push_back(baseIndex + 2);
-	}
-
-
-	// bad doubling
 }
 
 void SMMesh::GenerateShadowVolume(const DxDevice& device, XMFLOAT3 lightPos, XMFLOAT4X4 worldMtx, float extrusionDistance)
 {
 	std::vector<VertexPositionNormal> worldVertices(vertices.size());
+	std::vector<XMFLOAT3> worldPositions(positions.size());
 
 	std::vector<VertexPositionNormal> shadowVerticies;
 	std::vector<unsigned short> shadowIndicies;
 
 	XMMATRIX m = XMLoadFloat4x4(&worldMtx);
-	XMVECTOR referencev = XMVectorSet(0.f, 0.f, 0.f, 0.f);
+	for (int i = 0; i < positions.size(); i++)
+		XMStoreFloat3(&worldPositions[i], XMVector3Transform(XMLoadFloat3(&positions[i]), m));
+
 	for (int i = 0; i < vertices.size(); i++)
 	{
 		XMStoreFloat3(&worldVertices[i].position, XMVector3Transform(XMLoadFloat3(&vertices[i].position), m));
-		referencev += XMVector3Transform(XMLoadFloat3(&vertices[i].position), m);
 		XMStoreFloat3(&worldVertices[i].normal, XMVector3Normalize(XMVector3TransformNormal(XMLoadFloat3(&vertices[i].normal), m)));
 	}
 
 
 	XMVECTOR lightPosV = XMLoadFloat3(&lightPos);
-
-	referencev /= vertices.size();
-	auto refvdir = XMVector3Normalize(referencev - lightPosV);
-	referencev = referencev + refvdir * extrusionDistance / 2;
 
 	// extrude edges
 	for (Edge& edge : edges) {
@@ -125,7 +122,18 @@ void SMMesh::GenerateShadowVolume(const DxDevice& device, XMFLOAT3 lightPos, XMF
 		bool f1Front = FacingFront(faces[edge.face1], lightPosV, worldVertices);
 
 		if (f0Front != f1Front) {
-			generateExtrudedQuadForEdgeWithCaps(edge, worldVertices, lightPosV, referencev, extrusionDistance, shadowVerticies, shadowIndicies);
+			int backFaceIndex = f0Front ? edge.face1 : edge.face0;
+			Face& backFace = faces[backFaceIndex];
+
+			unsigned ev0 = edge.v0;
+			unsigned ev1 = edge.v1;
+
+			if (!isEdgeOriented(ev0, ev1, backFace)) {
+				// Flip to match backface winding
+				std::swap(ev0, ev1);
+			}
+
+			generateExtrudedQuadForEdgeWithCaps(Edge(ev0, ev1, edge.face0, edge.face1), worldPositions, lightPosV, extrusionDistance, shadowVerticies, shadowIndicies);
 		}
 	}
 
@@ -139,8 +147,8 @@ void SMMesh::GenerateShadowVolume(const DxDevice& device, XMFLOAT3 lightPos, XMF
 				shadowVerticies.push_back(worldVertices[face.indices[j]]);
 			}
 
-			shadowIndicies.push_back(baseIndex + 1);
 			shadowIndicies.push_back(baseIndex + 2);
+			shadowIndicies.push_back(baseIndex + 1);
 			shadowIndicies.push_back(baseIndex + 0);
 		}
 		else
@@ -183,9 +191,9 @@ SMMesh SMMesh::LoadMesh(const DxDevice& device, const std::wstring& meshPath)
 
 	int k, l, m, n;
 	input >> k;
-	vector<XMFLOAT3> positions(k);
+	mesh.positions.resize(k);
 	for (int i = 0; i < k; ++i)
-		input >> positions[i].x >> positions[i].y >> positions[i].z;
+		input >> mesh.positions[i].x >> mesh.positions[i].y >> mesh.positions[i].z;
 
 	input >> l;
 	mesh.vertices.resize(l);
@@ -193,7 +201,7 @@ SMMesh SMMesh::LoadMesh(const DxDevice& device, const std::wstring& meshPath)
 		int posIndex;
 		XMFLOAT3 normal;
 		input >> posIndex >> normal.x >> normal.y >> normal.z;
-		mesh.vertices[i].position = positions[posIndex];
+		mesh.vertices[i].position = mesh.positions[posIndex];
 		mesh.vertices[i].normal = normal;
 	}
 

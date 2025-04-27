@@ -453,7 +453,7 @@ void Puma::DrawParticleSystem()
 
 void Puma::DrawScene()
 {
-	DrawParticleSystem();
+	//DrawParticleSystem();
 	SetShaders(m_phongVS, m_phongPS);
 	//DrawMirroredWorld();
 
@@ -485,6 +485,7 @@ void Puma::Render()
 	}
 
 
+	UpdateBuffer(m_cbShadowControl, XMINT4(0, 0, 0, 0));
 	m_device.context()->RSSetState(m_rsCullBack.get());
 	for (int i = 0; i < 1; i++)
 	{
@@ -492,7 +493,6 @@ void Puma::Render()
 	}
 
 	// Third pass: render lit areas
-	UpdateBuffer(m_cbShadowControl, XMINT4(0, 0, 0, 0));
 	m_device.context()->OMSetDepthStencilState(m_dssStencilTest.get(), 0);
 	m_device.context()->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
 	m_device.context()->ClearDepthStencilView(m_depthBuffer.get(),
