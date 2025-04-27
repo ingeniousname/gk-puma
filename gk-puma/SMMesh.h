@@ -42,7 +42,7 @@ class SMMesh
 	bool FacingFront(const Face& face, const XMVECTOR& lightPos, const std::vector<VertexPositionNormal>& worldVertices);
 	bool isEdgeOriented(unsigned v0, unsigned v1, const Face& face);
 	bool SameFloat3(XMFLOAT3 v1, XMFLOAT3 v2);
-	void generateExtrudedQuadForEdgeWithCaps(
+	void generateExtrudedQuadForEdge(
 		const Edge& edge,
 		const std::vector<XMFLOAT3>& worldPositions,
 		const XMVECTOR& lightPos,

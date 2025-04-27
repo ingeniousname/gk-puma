@@ -53,6 +53,8 @@ Puma::Puma(HINSTANCE appInstance)
 	m_rsCullFront = m_device.CreateRasterizerState(rsDesc);
 	rsDesc.CullMode = D3D11_CULL_BACK;
 	m_rsCullBack = m_device.CreateRasterizerState(rsDesc);
+	rsDesc.CullMode = D3D11_CULL_NONE;
+	m_rsNoCull = m_device.CreateRasterizerState(rsDesc);
 
 	m_bsAdd = m_device.CreateBlendState(BlendDescription::AdditiveBlendDescription());
 	m_bsAlpha = m_device.CreateBlendState(BlendDescription::AlphaBlendDescription());
@@ -496,32 +498,35 @@ void Puma::Render()
 	UpdateBuffer(m_cbProjMtx, m_projMtx);
 	SetShaders(m_phongVS, m_phongPS);
 
+	// mirrored world rysujemy niezaleznie
 	DrawMirroredWorld();
 	m_device.context()->ClearDepthStencilView(m_depthBuffer.get(),
 		D3D11_CLEAR_STENCIL, 1.0f, 0);
 
 	DrawParticleSystem();
 
-	// render with no light
+	// render bez swiatla 
 	UpdateBuffer(m_cbShadowControl, XMINT4(1, 1, 1, 1));
 	DrawScene();
 
 	m_device.context()->OMSetDepthStencilState(m_dssStencilShadowVolume.get(), 1);
 	m_device.context()->OMSetBlendState(m_bsNoColor.get(), nullptr, 0xFFFFFFFF);
-	m_device.context()->RSSetState(m_rsCullFront.get());
+	m_device.context()->RSSetState(m_rsNoCull.get());
 
-	// generate and draw back of the shadow volume
+	// generujemy shadow volume
+	// metoda z-fail:
+	// 1. zwiekszamy przy depth-fail dla scian tylnych
+	// 2. zmniejszamy przy depth-fail dla scian przednich
+	// ale w directx jak ustawimy no culling i odpowiednie struktury to mozemy to zrobic w jednym draw callu
+
 	GenerateShadowVolumes();
 	DrawShadowVolumes();
 
-	// draw front of the shadow volume
 	m_device.context()->RSSetState(m_rsCullBack.get());
-	DrawShadowVolumes();
-
 	m_device.context()->OMSetDepthStencilState(m_dssStencilTest.get(), 0);
 	m_device.context()->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
 
-	// draw light where stencil == 0
+	// rysujemy tam gdzie stencil == 0, oświetlenie włączone, operator depth ustawiony na LESS_EQUAL
 	UpdateBuffer(m_cbShadowControl, XMINT4(0, 0, 0, 0));
 	DrawScene();
 

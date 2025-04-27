@@ -6,16 +6,17 @@ using namespace std;
 
 bool SMMesh::FacingFront(const Face& face, const XMVECTOR& lightPos, const std::vector<VertexPositionNormal>& worldVertices)
 {
-	XMVECTOR center = XMVectorSet(
-		(worldVertices[face.indices[0]].position.x + worldVertices[face.indices[0]].position.x + worldVertices[face.indices[0]].position.x) / 3,
-		(worldVertices[face.indices[1]].position.y + worldVertices[face.indices[1]].position.y + worldVertices[face.indices[1]].position.y) / 3,
-		(worldVertices[face.indices[2]].position.z + worldVertices[face.indices[2]].position.z + worldVertices[face.indices[2]].position.z) / 3,
-		1.f
-	);
+	XMVECTOR p0 = XMLoadFloat3(&worldVertices[face.indices[0]].position);
+	XMVECTOR p1 = XMLoadFloat3(&worldVertices[face.indices[1]].position);
+	XMVECTOR p2 = XMLoadFloat3(&worldVertices[face.indices[2]].position);
 
-	XMVECTOR lightDir = XMVector4Normalize(center - lightPos);
-	return XMVectorGetX(XMVector3Dot(lightDir, XMLoadFloat3(&worldVertices[face.indices[0]].normal))) > 0.f;
+	XMVECTOR edge1 = p1 - p0;
+	XMVECTOR edge2 = p2 - p0;
+	XMVECTOR faceNormal = XMVector3Normalize(XMVector3Cross(edge1, edge2));
 
+	XMVECTOR lightDir = XMVector3Normalize(p0 - lightPos);
+
+	return XMVectorGetX(XMVector3Dot(faceNormal, lightDir)) > 0.f;
 }
 
 bool SMMesh::isEdgeOriented(unsigned v0, unsigned v1, const Face& face)
@@ -33,7 +34,7 @@ bool SMMesh::isEdgeOriented(unsigned v0, unsigned v1, const Face& face)
 
 bool SMMesh::SameFloat3(XMFLOAT3 v1, XMFLOAT3 v2)
 {
-	return std::abs(v1.x - v2.x) + std::abs(v1.y - v2.y) + std::abs(v1.z - v2.z) < 1e-5;
+	return std::abs(v1.x - v2.x) + std::abs(v1.y - v2.y) + std::abs(v1.z - v2.z) < 1e-6;
 }
 
 void SMMesh::Render(const dx_ptr<ID3D11DeviceContext>& context) const
@@ -46,7 +47,7 @@ void SMMesh::RenderShadowVolume(const dx_ptr<ID3D11DeviceContext>& context) cons
 	shadowMesh.Render(context);
 }
 
-void SMMesh::generateExtrudedQuadForEdgeWithCaps(
+void SMMesh::generateExtrudedQuadForEdge(
 	const Edge& edge,
 	const std::vector<XMFLOAT3>& worldPositions,
 	const XMVECTOR& lightPos,
@@ -56,40 +57,37 @@ void SMMesh::generateExtrudedQuadForEdgeWithCaps(
 ) {
 	int baseIndex = shadowVertices.size();
 
-	// Load vertex positions
 	XMVECTOR p0 = XMLoadFloat3(&worldPositions[edge.v0]);
 	XMVECTOR p1 = XMLoadFloat3(&worldPositions[edge.v1]);
 
-	// Direction from vertex to light
+	// kierunek swiatla 
 	XMVECTOR dir0 = XMVector3Normalize(p0 - lightPos);
 	XMVECTOR dir1 = XMVector3Normalize(p1 - lightPos);
 
-	// Extruded points
 	XMVECTOR p0Extruded = p0 + dir0 * extrusionDistance;
 	XMVECTOR p1Extruded = p1 + dir1 * extrusionDistance;
 
-	// Calculate normals (point towards light for top cap, opposite for bottom cap)
-	XMVECTOR extrudedNormal = XMVector3Normalize(XMVector3Cross(p1 - p0, p1Extruded - p0)); // Wall normal
 
 	// Add the 4 vertices of the quad (the wall of the shadow volume)
 	for (int i = 0; i < 4; i++)
 		shadowVertices.push_back({ {},{} });
 
 	XMStoreFloat3(&shadowVertices[baseIndex].position, p0);
-	XMStoreFloat3(&shadowVertices[baseIndex].normal, extrudedNormal);
+	XMStoreFloat3(&shadowVertices[baseIndex].normal, {});
 
 	XMStoreFloat3(&shadowVertices[baseIndex + 1].position, p1);
-	XMStoreFloat3(&shadowVertices[baseIndex + 1].normal, extrudedNormal);
+	XMStoreFloat3(&shadowVertices[baseIndex + 1].normal, {});
 
 	XMStoreFloat3(&shadowVertices[baseIndex + 2].position, p1Extruded);
-	XMStoreFloat3(&shadowVertices[baseIndex + 2].normal, extrudedNormal);
+	XMStoreFloat3(&shadowVertices[baseIndex + 2].normal, {});
 
 	XMStoreFloat3(&shadowVertices[baseIndex + 3].position, p0Extruded);
-	XMStoreFloat3(&shadowVertices[baseIndex + 3].normal, extrudedNormal);
+	XMStoreFloat3(&shadowVertices[baseIndex + 3].normal, {});
 
 	shadowIndices.push_back(baseIndex + 0);
 	shadowIndices.push_back(baseIndex + 2);
 	shadowIndices.push_back(baseIndex + 1);
+
 	shadowIndices.push_back(baseIndex + 0);
 	shadowIndices.push_back(baseIndex + 3);
 	shadowIndices.push_back(baseIndex + 2);
@@ -147,11 +145,11 @@ std::vector<unsigned short> SMMesh::CylinderVerts(unsigned int stacks, unsigned 
 	auto topCenter = sideVerts;
 	auto bottomCenter = sideVerts + 1;
 
+	// sciany
 	for (unsigned int i = 0; i < sideVerts; ++i)
 	{
 		auto& pos = positions[i];
 
-		// Normal is just (x, 0, z) normalized
 		XMFLOAT3 normal(pos.x, 0.0f, pos.z);
 		XMStoreFloat3(&normal, XMVector3Normalize(XMLoadFloat3(&normal)));
 
@@ -159,6 +157,7 @@ std::vector<unsigned short> SMMesh::CylinderVerts(unsigned int stacks, unsigned 
 		vertexPosMapping.push_back(i);
 	}
 
+	// gorny cap
 	for (unsigned int j = 0; j < slices; ++j)
 	{
 		const auto& pos = positions[j];
@@ -169,6 +168,7 @@ std::vector<unsigned short> SMMesh::CylinderVerts(unsigned int stacks, unsigned 
 	vertices.push_back({ positions[topCenter], XMFLOAT3(0.0f, 1.0f, 0.0f) });
 	vertexPosMapping.push_back(topCenter);
 
+	// dolny cap
 	unsigned int bottomStart = (stacks)*slices;
 	for (unsigned int j = 0; j < slices; ++j)
 	{
@@ -177,7 +177,6 @@ std::vector<unsigned short> SMMesh::CylinderVerts(unsigned int stacks, unsigned 
 		vertexPosMapping.push_back(bottomStart + j);
 	}
 
-	// Bottom center vertex
 	vertices.push_back({ positions[bottomCenter], XMFLOAT3(0.0f, -1.0f, 0.0f) });
 	vertexPosMapping.push_back(bottomCenter);
 
@@ -277,7 +276,6 @@ std::vector<unsigned short> SMMesh::CylinderIdx(unsigned int stacks, unsigned in
 		++faceIndex;
 	}
 
-	// === Edges ===
 	edges.reserve(edgeMap.size());
 	for (auto& [_, edge] : edgeMap)
 	{
@@ -294,11 +292,6 @@ void SMMesh::DoubleRectPositions(float width, float height)
 	 { +0.5f * width, -0.5f * height, 0.0f }, 
 	 { +0.5f * width, +0.5f * height, 0.0f }, 
 	 { -0.5f * width, +0.5f * height, 0.0f }, 
-
-	 { -0.5f * width, -0.5f * height, 0.0f }, 
-	 { -0.5f * width, +0.5f * height, 0.0f }, 
-	 { +0.5f * width, +0.5f * height, 0.0f }, 
-	 { +0.5f * width, -0.5f * height, 0.0f }, 
 	};
 }
 
@@ -340,6 +333,7 @@ void SMMesh::GenerateShadowVolume(const DxDevice& device, XMFLOAT3 lightPos, XMF
 	std::vector<VertexPositionNormal> shadowVerticies;
 	std::vector<unsigned short> shadowIndicies;
 
+	// przejscie ze wspolrzednymi wszystkich wierzcholkow/pozycji do wspolrzednych swiata
 	XMMATRIX m = XMLoadFloat4x4(&worldMtx);
 	for (int i = 0; i < positions.size(); i++)
 		XMStoreFloat3(&worldPositions[i], XMVector3Transform(XMLoadFloat3(&positions[i]), m));
@@ -353,11 +347,13 @@ void SMMesh::GenerateShadowVolume(const DxDevice& device, XMFLOAT3 lightPos, XMF
 
 	XMVECTOR lightPosV = XMLoadFloat3(&lightPos);
 
-	// extrude edges
+	// wyciaganie krawedzi 
 	for (Edge& edge : edges) {
+
 		bool f0Front = FacingFront(faces[edge.face0], lightPosV, worldVertices);
 		bool f1Front = FacingFront(faces[edge.face1], lightPosV, worldVertices);
 
+		// jezeli jedna ze scian jest oswietlona a druga nie - krawedz sylwetki - ma byc wyciagnieta
 		if (f0Front != f1Front) {
 			int backFaceIndex = f0Front ? edge.face1 : edge.face0;
 			Face& backFace = faces[backFaceIndex];
@@ -366,18 +362,19 @@ void SMMesh::GenerateShadowVolume(const DxDevice& device, XMFLOAT3 lightPos, XMF
 			unsigned ev1 = edge.v1;
 
 			if (!isEdgeOriented(ev0, ev1, backFace)) {
-				// Flip to match backface winding
+				// dopasowanie windingu do windingu nieoswietlonej sciany
 				std::swap(ev0, ev1);
 			}
 
-			generateExtrudedQuadForEdgeWithCaps(Edge(ev0, ev1, edge.face0, edge.face1), worldPositions, lightPosV, extrusionDistance, shadowVerticies, shadowIndicies);
+			generateExtrudedQuadForEdge(Edge(ev0, ev1, edge.face0, edge.face1), worldPositions, lightPosV, extrusionDistance, shadowVerticies, shadowIndicies);
 		}
 	}
 
 	for (size_t i = 0; i < faces.size(); ++i) {
 		const Face& face = faces[i];
-		// top cap
 		uint32_t baseIndex = shadowVerticies.size();
+
+		// gorny czepiec
 		if (FacingFront(face, lightPosV, worldVertices)) {
 
 			for (int j = 0; j < 3; ++j) {
@@ -388,6 +385,7 @@ void SMMesh::GenerateShadowVolume(const DxDevice& device, XMFLOAT3 lightPos, XMF
 			shadowIndicies.push_back(baseIndex + 1);
 			shadowIndicies.push_back(baseIndex + 0);
 		}
+		// dolny czepiec - wyci¹gany
 		else
 		{
 			for (int j = 0; j < 3; ++j) {
@@ -457,7 +455,6 @@ SMMesh SMMesh::LoadMesh(const DxDevice& device, const std::wstring& meshPath)
 
 	input >> n;
 	// KRAWEDZIE
-	//getline(input, skipLine); 
 	for (int i = 0; i < n; ++i)
 	{
 		unsigned v0, v1;
