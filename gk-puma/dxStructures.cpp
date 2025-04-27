@@ -113,6 +113,14 @@ BlendDescription mini::BlendDescription::AdditiveBlendDescription()
 	return desc;
 }
 
+BlendDescription mini::BlendDescription::NoColorBlendDescription()
+{
+	BlendDescription desc = {};
+	desc.RenderTarget[0].BlendEnable = FALSE;
+	desc.RenderTarget[0].RenderTargetWriteMask = 0;
+	return desc;
+}
+
 DepthStencilDescription::DepthStencilDescription()
 {
 	DepthEnable = true;

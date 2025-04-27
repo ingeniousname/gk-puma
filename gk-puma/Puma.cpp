@@ -6,16 +6,17 @@ using namespace mini;
 using namespace gk2;
 using namespace DirectX;
 using namespace std;
-const XMFLOAT4 Puma::LIGHT_POS = {2.0f, 3.0f, 3.0f, 1.0f};
+const XMFLOAT4 Puma::LIGHT_POS = { 2.0f, 3.0f, 3.0f, 1.0f };
 
 Puma::Puma(HINSTANCE appInstance)
-	: DxApplication(appInstance, 1280, 720, L"Pokój"), 
+	: DxApplication(appInstance, 1280, 720, L"Pokój"),
 	//Constant Buffers
 	m_cbWorldMtx(m_device.CreateConstantBuffer<XMFLOAT4X4>()),
 	m_cbProjMtx(m_device.CreateConstantBuffer<XMFLOAT4X4>()),
 	m_cbViewMtx(m_device.CreateConstantBuffer<XMFLOAT4X4, 2>()),
 	m_cbSurfaceColor(m_device.CreateConstantBuffer<XMFLOAT4>()),
 	m_cbLightPos(m_device.CreateConstantBuffer<XMFLOAT4, 2>()),
+	m_cbShadowControl(m_device.CreateConstantBuffer<XMINT4>()),
 	m_vbParticleSystem(m_device.CreateVertexBuffer<ParticleVertex>(ParticleSystem::MAX_PARTICLES)),
 	m_particleTexture(m_device.CreateShaderResourceView(L"resources/textures/particle.png"))
 {
@@ -31,13 +32,13 @@ Puma::Puma(HINSTANCE appInstance)
 	vector<unsigned short> indices;
 	for (int i = 0; i < 6; i++)
 	{
-		m_manipulator[i] = Mesh::LoadMesh(m_device, L"resources/meshes/mesh" + std::to_wstring(i + 1) + L".txt");
+		m_manipulator[i] = SMMesh::LoadMesh(m_device, L"resources/meshes/mesh" + std::to_wstring(i + 1) + L".txt");
 		XMStoreFloat4x4(&m_manipulatorMtx[i], XMMatrixIdentity());
 	}
-	
-	m_cylinder = Mesh::Cylinder(m_device, 100, 100, 3.f, 0.5f);
+
+	m_cylinder = SMMesh::Cylinder(m_device, 20, 20, 3.f, 0.5f);
 	m_box = Mesh::ShadedBox(m_device, 5.f);
-	m_mirror = Mesh::DoubleRect(m_device, 1.5f, 1.f);
+	m_mirror = SMMesh::DoubleRect(m_device, 1.5f, 1.f);
 	XMStoreFloat4x4(&m_mirrorMtx, XMMatrixRotationY(XM_PIDIV2) * XMMatrixRotationZ(XM_PIDIV4) * XMMatrixTranslation(-1.5f, 0.25f, -0.5f));
 
 	//Constant buffers content
@@ -55,6 +56,7 @@ Puma::Puma(HINSTANCE appInstance)
 
 	m_bsAdd = m_device.CreateBlendState(BlendDescription::AdditiveBlendDescription());
 	m_bsAlpha = m_device.CreateBlendState(BlendDescription::AlphaBlendDescription());
+	m_bsNoColor = m_device.CreateBlendState(BlendDescription::NoColorBlendDescription());
 	DepthStencilDescription dssDesc;
 	dssDesc.DepthEnable = true;
 	dssDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
@@ -73,6 +75,7 @@ Puma::Puma(HINSTANCE appInstance)
 	m_dssStencilWrite = m_device.CreateDepthStencilState(dssDesc);
 
 	dssDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+	dssDesc.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
 	dssDesc.StencilEnable = true;
 	dssDesc.DepthEnable = true;
 	dssDesc.FrontFace.StencilFunc = D3D11_COMPARISON_EQUAL;
@@ -81,8 +84,35 @@ Puma::Puma(HINSTANCE appInstance)
 	dssDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
 	m_dssStencilTest = m_device.CreateDepthStencilState(dssDesc);
 
-	//Textures
 
+
+	DepthStencilDescription desc;
+	desc.DepthEnable = true;
+	desc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+	desc.DepthFunc = D3D11_COMPARISON_LESS;
+
+	desc.StencilEnable = true;
+	desc.StencilReadMask = 0xFF;
+	desc.StencilWriteMask = 0xFF;
+
+	// Front faces: increment stencil on depth fail
+	desc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+	desc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_INCR;
+	desc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+	desc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+
+	// Back faces: decrement stencil on depth fail
+	desc.BackFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+	desc.BackFace.StencilDepthFailOp = D3D11_STENCIL_OP_DECR;
+	desc.BackFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+	desc.BackFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+
+	m_dssStencilShadowVolume = m_device.CreateDepthStencilState(desc);
+
+
+
+
+	//Textures
 	auto vsCode = m_device.LoadByteCode(L"phongVS.cso");
 	auto psCode = m_device.LoadByteCode(L"phongPS.cso");
 	m_phongVS = m_device.CreateVertexShader(vsCode);
@@ -117,8 +147,8 @@ Puma::Puma(HINSTANCE appInstance)
 	ID3D11Buffer* vsb[] = { m_cbWorldMtx.get(),  m_cbViewMtx.get(), m_cbProjMtx.get() };
 	m_device.context()->VSSetConstantBuffers(0, 3, vsb); //Vertex Shaders - 0: worldMtx, 1: viewMtx,invViewMtx, 2: projMtx, 3: tex1Mtx, 4: tex2Mtx
 	m_device.context()->GSSetConstantBuffers(0, 1, vsb + 2); //Geometry Shaders - 0: projMtx
-	ID3D11Buffer* psb[] = { m_cbSurfaceColor.get(), m_cbLightPos.get() };
-	m_device.context()->PSSetConstantBuffers(0, 2, psb); //Pixel Shaders - 0: surfaceColor, 1: lightPos
+	ID3D11Buffer* psb[] = { m_cbSurfaceColor.get(), m_cbLightPos.get(), m_cbShadowControl.get() };
+	m_device.context()->PSSetConstantBuffers(0, 3, psb); //Pixel Shaders - 0: surfaceColor, 1: lightPos, 2: shadowControl
 }
 
 void Puma::UpdateCameraCB(XMMATRIX viewMtx)
@@ -200,7 +230,7 @@ void Puma::ManipulatorAnimation(double dt)
 	const float r = 0.4f;
 	static float t = 0.f;
 	t += static_cast<float>(dt);
-	XMFLOAT3 pos = { r * cosf(t), r * sinf(t), 0.f};
+	XMFLOAT3 pos = { r * cosf(t), r * sinf(t), 0.f };
 	XMFLOAT3 normal = { 0.f, 0.f, -1.f };
 
 	XMVECTOR p = XMLoadFloat3(&pos);
@@ -281,6 +311,29 @@ void mini::gk2::Puma::UpdateParticleSystem(double dt)
 	UpdateBuffer(m_vbParticleSystem, verts);
 }
 
+void mini::gk2::Puma::GenerateShadowVolumes()
+{
+	const float extrusionDistance = 10.f;
+	for (int i = 0; i < 6; i++)
+	{
+		m_manipulator[i].GenerateShadowVolume(m_device, { LIGHT_POS.x, LIGHT_POS.y, LIGHT_POS.z }, m_manipulatorMtx[i], extrusionDistance);
+	}
+	m_cylinder.GenerateShadowVolume(m_device, { LIGHT_POS.x, LIGHT_POS.y, LIGHT_POS.z }, m_cylinderMtx, extrusionDistance);
+	m_mirror.GenerateShadowVolume(m_device, { LIGHT_POS.x, LIGHT_POS.y, LIGHT_POS.z }, m_mirrorMtx, extrusionDistance);
+}
+
+void mini::gk2::Puma::DrawShadowVolumes()
+{
+	XMFLOAT4X4 mtx;
+	XMStoreFloat4x4(&mtx, DirectX::XMMatrixIdentity());
+	for (int i = 0; i < 6; i++)
+	{
+		DrawShadowVolume(m_manipulator[i], mtx);
+	}
+	DrawShadowVolume(m_cylinder, mtx);
+	DrawShadowVolume(m_mirror, mtx);
+}
+
 
 void Puma::Update(const Clock& c)
 {
@@ -291,7 +344,9 @@ void Puma::Update(const Clock& c)
 	{
 		ManipulatorAnimation(dt);
 		UpdateParticleSystem(dt);
-	}	
+	}
+
+	UpdateCameraCB();
 }
 
 void Puma::SetWorldMtx(DirectX::XMFLOAT4X4 mtx)
@@ -312,9 +367,9 @@ void mini::gk2::Puma::SetShaders(const dx_ptr<ID3D11VertexShader>& vs, const dx_
 
 void mini::gk2::Puma::SetTextures(std::initializer_list<ID3D11ShaderResourceView*> resList, const dx_ptr<ID3D11SamplerState>& sampler)
 {
-		m_device.context()->PSSetShaderResources(0, resList.size(), resList.begin());
-		auto s_ptr = sampler.get();
-		m_device.context()->PSSetSamplers(0, 1, &s_ptr);
+	m_device.context()->PSSetShaderResources(0, resList.size(), resList.begin());
+	auto s_ptr = sampler.get();
+	m_device.context()->PSSetSamplers(0, 1, &s_ptr);
 }
 
 void Puma::DrawMesh(const Mesh& m, DirectX::XMFLOAT4X4 worldMtx)
@@ -326,9 +381,11 @@ void Puma::DrawMesh(const Mesh& m, DirectX::XMFLOAT4X4 worldMtx)
 void Puma::DrawMirroredWorld()
 {
 	// write mirror to stencil buffer
+	m_device.context()->OMSetBlendState(m_bsNoColor.get(), nullptr, 0xFFFFFFFF);
 	m_device.context()->OMSetDepthStencilState(m_dssStencilWrite.get(), 1);
 	DrawMirror();
 	m_device.context()->OMSetDepthStencilState(m_dssStencilTest.get(), 1);
+	m_device.context()->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
 	XMMATRIX mirror = XMMatrixScaling(1.f, 1.f, -1.f);
 	XMMATRIX model = XMLoadFloat4x4(&m_mirrorMtx);
 	XMMATRIX inv = XMMatrixInverse(nullptr, model);
@@ -340,8 +397,9 @@ void Puma::DrawMirroredWorld()
 	DrawBox();
 	DrawManipulators();
 	DrawCylinder();
-	//DrawParticleSystem();
-
+	DrawParticleSystem();
+	
+	
 	UpdateCameraCB();
 	m_device.context()->RSSetState(nullptr);
 	m_device.context()->OMSetDepthStencilState(nullptr, 0);
@@ -359,18 +417,31 @@ void mini::gk2::Puma::DrawMirror()
 void mini::gk2::Puma::DrawManipulators()
 {
 	SetSurfaceColor({ 0.75f, 0.75f, 0.75f, 1.f });
+	XMFLOAT4X4 mtx;
+	XMStoreFloat4x4(&mtx, DirectX::XMMatrixIdentity());
 	for (int i = 0; i < 6; i++)
 	{
 		DrawMesh(m_manipulator[i], m_manipulatorMtx[i]);
 	}
 }
 
+void Puma::DrawMesh(const SMMesh& m, DirectX::XMFLOAT4X4 worldMtx)
+{
+	SetWorldMtx(worldMtx);
+	m.Render(m_device.context());
+}
+
+void mini::gk2::Puma::DrawShadowVolume(const SMMesh& m, DirectX::XMFLOAT4X4 worldMtx)
+{
+	SetWorldMtx(worldMtx);
+	m.RenderShadowVolume(m_device.context());
+}
+
 void mini::gk2::Puma::DrawCylinder()
 {
-	XMFLOAT4X4 mtx;
 	SetSurfaceColor({ 0.f, 0.75f, 0.f, 1.f });
-	XMStoreFloat4x4(&mtx, XMMatrixRotationZ(XM_PIDIV2) * XMMatrixTranslation(0.f, -1.f, -1.5f));
-	DrawMesh(m_cylinder, mtx);
+	XMStoreFloat4x4(&m_cylinderMtx, XMMatrixRotationZ(XM_PIDIV2) * XMMatrixTranslation(0.f, -1.f, -1.5f));
+	DrawMesh(m_cylinder, m_cylinderMtx);
 }
 
 void mini::gk2::Puma::DrawBox()
@@ -405,13 +476,12 @@ void Puma::DrawParticleSystem()
 	m_device.context()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	m_device.context()->OMSetDepthStencilState(nullptr, 0);
 	m_device.context()->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
+	SetShaders(m_phongVS, m_phongPS);
 }
 
 void Puma::DrawScene()
 {
-	DrawParticleSystem();
 	SetShaders(m_phongVS, m_phongPS);
-	DrawMirroredWorld();
 
 	DrawManipulators();
 	DrawCylinder();
@@ -424,6 +494,37 @@ void Puma::Render()
 
 	ResetRenderTarget();
 	UpdateBuffer(m_cbProjMtx, m_projMtx);
+	SetShaders(m_phongVS, m_phongPS);
 
+	DrawMirroredWorld();
+	m_device.context()->ClearDepthStencilView(m_depthBuffer.get(),
+		D3D11_CLEAR_STENCIL, 1.0f, 0);
+
+	DrawParticleSystem();
+
+	// render with no light
+	UpdateBuffer(m_cbShadowControl, XMINT4(1, 1, 1, 1));
 	DrawScene();
+
+	m_device.context()->OMSetDepthStencilState(m_dssStencilShadowVolume.get(), 1);
+	m_device.context()->OMSetBlendState(m_bsNoColor.get(), nullptr, 0xFFFFFFFF);
+	m_device.context()->RSSetState(m_rsCullFront.get());
+
+	// generate and draw back of the shadow volume
+	GenerateShadowVolumes();
+	DrawShadowVolumes();
+
+	// draw front of the shadow volume
+	m_device.context()->RSSetState(m_rsCullBack.get());
+	DrawShadowVolumes();
+
+	m_device.context()->OMSetDepthStencilState(m_dssStencilTest.get(), 0);
+	m_device.context()->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
+
+	// draw light where stencil == 0
+	UpdateBuffer(m_cbShadowControl, XMINT4(0, 0, 0, 0));
+	DrawScene();
+
+	m_device.context()->OMSetDepthStencilState(nullptr, 0);
+
 }

@@ -81,7 +81,9 @@ dx_ptr<ID3D11Buffer> DxDevice::CreateBuffer(const void* data, const D3D11_BUFFER
 	auto hr = m_device->CreateBuffer(&desc, data ? &sdata : nullptr, &temp);
 	dx_ptr<ID3D11Buffer> result{ temp };
 	if (FAILED(hr))
+	{
 		THROW_DX(hr);
+	}
 	return result;
 }
 
