@@ -38,7 +38,7 @@ Puma::Puma(HINSTANCE appInstance)
 
 	m_cylinder = SMMesh::Cylinder(m_device, 20, 20, 3.f, 0.5f);
 	m_box = Mesh::ShadedBox(m_device, 5.f);
-	m_mirror = Mesh::DoubleRect(m_device, 1.5f, 1.f);
+	m_mirror = SMMesh::DoubleRect(m_device, 1.5f, 1.f);
 	XMStoreFloat4x4(&m_mirrorMtx, XMMatrixRotationY(XM_PIDIV2) * XMMatrixRotationZ(XM_PIDIV4) * XMMatrixTranslation(-1.5f, 0.25f, -0.5f));
 
 	//Constant buffers content
@@ -310,6 +310,29 @@ void mini::gk2::Puma::UpdateParticleSystem(double dt)
 	UpdateBuffer(m_vbParticleSystem, verts);
 }
 
+void mini::gk2::Puma::GenerateShadowVolumes()
+{
+	const float extrusionDistance = 10.f;
+	for (int i = 0; i < 6; i++)
+	{
+		m_manipulator[i].GenerateShadowVolume(m_device, { LIGHT_POS.x, LIGHT_POS.y, LIGHT_POS.z }, m_manipulatorMtx[i], extrusionDistance);
+	}
+	m_cylinder.GenerateShadowVolume(m_device, { LIGHT_POS.x, LIGHT_POS.y, LIGHT_POS.z }, m_cylinderMtx, extrusionDistance);
+	m_mirror.GenerateShadowVolume(m_device, { LIGHT_POS.x, LIGHT_POS.y, LIGHT_POS.z }, m_mirrorMtx, extrusionDistance);
+}
+
+void mini::gk2::Puma::DrawShadowVolumes()
+{
+	XMFLOAT4X4 mtx;
+	XMStoreFloat4x4(&mtx, DirectX::XMMatrixIdentity());
+	for (int i = 0; i < 6; i++)
+	{
+		DrawShadowVolume(m_manipulator[i], mtx);
+	}
+	DrawShadowVolume(m_cylinder, mtx);
+	DrawShadowVolume(m_mirror, mtx);
+}
+
 
 void Puma::Update(const Clock& c)
 {
@@ -391,7 +414,7 @@ void mini::gk2::Puma::DrawManipulators()
 	SetSurfaceColor({ 0.75f, 0.75f, 0.75f, 1.f });
 	XMFLOAT4X4 mtx;
 	XMStoreFloat4x4(&mtx, DirectX::XMMatrixIdentity());
-	for (int i = 0; i < 1; i++)
+	for (int i = 0; i < 6; i++)
 	{
 		DrawMesh(m_manipulator[i], m_manipulatorMtx[i]);
 	}
@@ -455,6 +478,7 @@ void Puma::DrawScene()
 	//DrawParticleSystem();
 	SetShaders(m_phongVS, m_phongPS);
 	//DrawMirroredWorld();
+	DrawMirror();
 
 	DrawManipulators();
 	DrawCylinder();
@@ -468,41 +492,31 @@ void Puma::Render()
 	ResetRenderTarget();
 	UpdateBuffer(m_cbProjMtx, m_projMtx);
 
+	// render with no light
 	UpdateBuffer(m_cbShadowControl, XMINT4(1, 1, 1, 1));
 	DrawScene();
+
 
 	m_device.context()->OMSetDepthStencilState(m_dssStencilShadowVolume.get(), 1);
 	m_device.context()->OMSetBlendState(m_bsNoColor.get(), nullptr, 0xFFFFFFFF);
 	m_device.context()->RSSetState(m_rsCullFront.get());
 
-	XMFLOAT4X4 mtx;
-	XMStoreFloat4x4(&mtx, DirectX::XMMatrixIdentity());
-	for (int i = 0; i < 1; i++)
-	{
-		m_manipulator[i].GenerateShadowVolume(m_device, { LIGHT_POS.x, LIGHT_POS.y, LIGHT_POS.z }, m_manipulatorMtx[i], 10.f);
-		DrawShadowVolume(m_manipulator[i], mtx);
-	}
-	m_cylinder.GenerateShadowVolume(m_device, { LIGHT_POS.x, LIGHT_POS.y, LIGHT_POS.z }, m_cylinderMtx, 10.f);
-	DrawShadowVolume(m_cylinder, mtx);
-	
+	// generate and draw back of the shadow volume
+	GenerateShadowVolumes();
+	DrawShadowVolumes();
 
-
-	UpdateBuffer(m_cbShadowControl, XMINT4(0, 0, 0, 0));
+	// draw front of the shadow volume
 	m_device.context()->RSSetState(m_rsCullBack.get());
-	for (int i = 0; i < 1; i++)
-	{
-		DrawShadowVolume(m_manipulator[i], mtx);
-	}
-	DrawShadowVolume(m_cylinder, mtx);
+	DrawShadowVolumes();
 
-	// Third pass: render lit areas
 	m_device.context()->OMSetDepthStencilState(m_dssStencilTest.get(), 0);
 	m_device.context()->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
 	m_device.context()->ClearDepthStencilView(m_depthBuffer.get(),
 		D3D11_CLEAR_DEPTH, 1.0f, 0);
-	DrawScene(); // render light contribution where stencil == 0
 
-	// Clean up
-	m_device.context()->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
+	// draw light where stencil == 0
+	UpdateBuffer(m_cbShadowControl, XMINT4(0, 0, 0, 0));
+	DrawScene();
+
 	m_device.context()->OMSetDepthStencilState(nullptr, 0);
 }

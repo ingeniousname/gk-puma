@@ -98,17 +98,16 @@ void SMMesh::generateExtrudedQuadForEdgeWithCaps(
 
 void SMMesh::AddEdge(std::map<std::pair<unsigned short, unsigned short>, Edge>& edgeMap, unsigned short v0, unsigned short v1, unsigned short face)
 {
-	auto key = std::minmax(v0, v1); // Always (smaller, larger) to avoid duplicates
+	auto key = std::minmax(v0, v1);
 	auto it = edgeMap.find(key);
 	if (it == edgeMap.end())
 	{
-		// New edge
 		edgeMap[key] = Edge(key.first, key.second, face, UINT_MAX);
 	}
 	else
 	{
-		// Existing edge, fill second face
-		it->second.face1 = face;
+		if (it->second.face1 == UINT_MAX)
+			it->second.face1 = face;
 	}
 }
 
@@ -288,6 +287,51 @@ std::vector<unsigned short> SMMesh::CylinderIdx(unsigned int stacks, unsigned in
 	return indices;
 }
 
+void SMMesh::DoubleRectPositions(float width, float height)
+{
+	this->positions = {
+	 { -0.5f * width, -0.5f * height, 0.0f }, 
+	 { +0.5f * width, -0.5f * height, 0.0f }, 
+	 { +0.5f * width, +0.5f * height, 0.0f }, 
+	 { -0.5f * width, +0.5f * height, 0.0f }, 
+
+	 { -0.5f * width, -0.5f * height, 0.0f }, 
+	 { -0.5f * width, +0.5f * height, 0.0f }, 
+	 { +0.5f * width, +0.5f * height, 0.0f }, 
+	 { +0.5f * width, -0.5f * height, 0.0f }, 
+	};
+}
+
+std::vector<unsigned short> SMMesh::DoubleRectVerts()
+{
+	std::vector<unsigned short> posMapping = { 0, 1, 2, 3, 0, 3, 2, 1 };
+	for (int i = 0; i < 8; i++)
+	{
+		XMFLOAT3 normal = i >= 4 ? XMFLOAT3(0.0f, 0.0f, -1.0f) : XMFLOAT3(0.0f, 0.0f, 1.0f);
+		vertices.push_back({ positions[posMapping[i]], normal });
+	}
+
+	return posMapping;
+}
+
+std::vector<unsigned short> SMMesh::DoubleRectIdx(const std::vector<unsigned short>& vertexPositionMapping)
+{
+	std::vector<unsigned short> indices = { 0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7 };
+	std::map<std::pair<unsigned short, unsigned short>, Edge> edgeMap;
+	for (int i = 0; i < indices.size(); i += 3)
+	{
+		faces.push_back(Face(indices[i], indices[i + 1], indices[i + 2]));
+		AddEdge(edgeMap, vertexPositionMapping[indices[i]], vertexPositionMapping[indices[i + 1]], i / 3);
+		AddEdge(edgeMap, vertexPositionMapping[indices[i + 1]], vertexPositionMapping[indices[i + 2]], i / 3);
+		AddEdge(edgeMap, vertexPositionMapping[indices[i + 2]], vertexPositionMapping[indices[i]], i / 3);
+	}
+
+	for (const auto& [_, edge] : edgeMap)
+		edges.push_back(edge);
+
+	return indices;
+}
+
 void SMMesh::GenerateShadowVolume(const DxDevice& device, XMFLOAT3 lightPos, XMFLOAT4X4 worldMtx, float extrusionDistance)
 {
 	std::vector<VertexPositionNormal> worldVertices(vertices.size());
@@ -437,4 +481,16 @@ SMMesh SMMesh::Cylinder(const DxDevice& device, unsigned int stacks, unsigned in
 	cylinder.mesh = Mesh::SimpleTriMesh(device, cylinder.vertices, indices);
 
 	return cylinder;
+}
+
+SMMesh SMMesh::DoubleRect(const DxDevice& device, float width, float height)
+{
+	SMMesh doubleRect;
+	doubleRect.DoubleRectPositions(width, height);
+	auto posMapping = doubleRect.DoubleRectVerts();
+	auto indices = doubleRect.DoubleRectIdx(posMapping);
+
+	doubleRect.mesh = Mesh::SimpleTriMesh(device, doubleRect.vertices, indices);
+
+	return doubleRect;
 }

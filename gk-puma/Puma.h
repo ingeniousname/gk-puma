@@ -35,7 +35,7 @@ namespace mini::gk2
 		SMMesh m_manipulator[6];
 		SMMesh m_cylinder;
 		Mesh m_box;
-		Mesh m_mirror;
+		SMMesh m_mirror;
 
 		DirectX::XMFLOAT4X4 m_projMtx;
 		DirectX::XMFLOAT4X4 m_mirrorMtx;
@@ -72,6 +72,9 @@ namespace mini::gk2
 		void InverseKinematics(DirectX::XMFLOAT3 pos, DirectX::XMFLOAT3 normal);
 		void UpdateManipulatorMtx();
 		void UpdateParticleSystem(double dt);
+
+		void GenerateShadowVolumes();
+		void DrawShadowVolumes();
 
 		void DrawMesh(const Mesh& m, DirectX::XMFLOAT4X4 worldMtx);
 		void DrawMirroredWorld();
