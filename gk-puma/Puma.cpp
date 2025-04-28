@@ -1,12 +1,13 @@
 ﻿#include "Puma.h"
 #include <array>
+#include <iostream>
 #include "mesh.h"
 
 using namespace mini;
 using namespace gk2;
 using namespace DirectX;
 using namespace std;
-const XMFLOAT4 Puma::LIGHT_POS = { 2.0f, 3.0f, 3.0f, 1.0f };
+const XMFLOAT4 Puma::LIGHT_POS = { 2.0f, 3.0f, 2.0f, 1.0f };
 
 Puma::Puma(HINSTANCE appInstance)
 	: DxApplication(appInstance, 1280, 720, L"Pokój"),
@@ -16,6 +17,7 @@ Puma::Puma(HINSTANCE appInstance)
 	m_cbViewMtx(m_device.CreateConstantBuffer<XMFLOAT4X4, 2>()),
 	m_cbSurfaceColor(m_device.CreateConstantBuffer<XMFLOAT4>()),
 	m_cbLightPos(m_device.CreateConstantBuffer<XMFLOAT4, 2>()),
+	m_cbMirrorBuf(m_device.CreateConstantBuffer<XMFLOAT4, 2>()),
 	m_cbShadowControl(m_device.CreateConstantBuffer<XMINT4>()),
 	m_vbParticleSystem(m_device.CreateVertexBuffer<ParticleVertex>(ParticleSystem::MAX_PARTICLES)),
 	m_particleTexture(m_device.CreateShaderResourceView(L"resources/textures/particle.png"))
@@ -40,6 +42,9 @@ Puma::Puma(HINSTANCE appInstance)
 	m_box = Mesh::ShadedBox(m_device, 5.f);
 	m_mirror = SMMesh::DoubleRect(m_device, 1.5f, 1.f);
 	XMStoreFloat4x4(&m_mirrorMtx, XMMatrixRotationY(XM_PIDIV2) * XMMatrixRotationZ(XM_PIDIV4) * XMMatrixTranslation(-1.5f, 0.25f, -0.5f));
+
+	mirrorNormal = { 1.f / sqrtf(2), 1.f / sqrtf(2), 0, 0 };
+	mirrorPoint = { -1.5f, 0.25f, -0.5f, 1 };
 
 	//Constant buffers content
 	UpdateBuffer(m_cbLightPos, LIGHT_POS);
@@ -112,14 +117,17 @@ Puma::Puma(HINSTANCE appInstance)
 	m_dssStencilShadowVolume = m_device.CreateDepthStencilState(desc);
 
 
-
-
 	//Textures
 	auto vsCode = m_device.LoadByteCode(L"phongVS.cso");
 	auto psCode = m_device.LoadByteCode(L"phongPS.cso");
 	m_phongVS = m_device.CreateVertexShader(vsCode);
 	m_phongPS = m_device.CreatePixelShader(psCode);
 	m_inputlayout = m_device.CreateInputLayout(VertexPositionNormal::Layout, vsCode);
+
+	vsCode = m_device.LoadByteCode(L"phongVSMirror.cso");
+	psCode = m_device.LoadByteCode(L"phongPSMirror.cso");
+	m_phongVSMirror = m_device.CreateVertexShader(vsCode);
+	m_phongPSMirror = m_device.CreatePixelShader(psCode);
 
 	vsCode = m_device.LoadByteCode(L"texturedVS.cso");
 	psCode = m_device.LoadByteCode(L"texturedPS.cso");
@@ -146,8 +154,8 @@ Puma::Puma(HINSTANCE appInstance)
 
 	//We have to make sure all shaders use constant buffers in the same slots!
 	//Not all slots will be use by each shader
-	ID3D11Buffer* vsb[] = { m_cbWorldMtx.get(),  m_cbViewMtx.get(), m_cbProjMtx.get() };
-	m_device.context()->VSSetConstantBuffers(0, 3, vsb); //Vertex Shaders - 0: worldMtx, 1: viewMtx,invViewMtx, 2: projMtx, 3: tex1Mtx, 4: tex2Mtx
+	ID3D11Buffer* vsb[] = { m_cbWorldMtx.get(),  m_cbViewMtx.get(), m_cbProjMtx.get(), m_cbMirrorBuf.get() };
+	m_device.context()->VSSetConstantBuffers(0, 4, vsb); //Vertex Shaders - 0: worldMtx, 1: viewMtx,invViewMtx, 2: projMtx, 3: tex1Mtx, 4: tex2Mtx
 	m_device.context()->GSSetConstantBuffers(0, 1, vsb + 2); //Geometry Shaders - 0: projMtx
 	ID3D11Buffer* psb[] = { m_cbSurfaceColor.get(), m_cbLightPos.get(), m_cbShadowControl.get() };
 	m_device.context()->PSSetConstantBuffers(0, 3, psb); //Pixel Shaders - 0: surfaceColor, 1: lightPos, 2: shadowControl
@@ -348,6 +356,7 @@ void Puma::Update(const Clock& c)
 		UpdateParticleSystem(dt);
 	}
 
+	auto xx = m_camera.getCameraPosition();
 	UpdateCameraCB();
 }
 
@@ -395,15 +404,20 @@ void Puma::DrawMirroredWorld()
 
 	m_device.context()->RSSetState(m_rsCCW.get());
 	mirrorRef = mirrorRef * m_camera.getViewMatrix();
+
 	UpdateCameraCB(mirrorRef);
+	SetShaders(m_phongVSMirror, m_phongPSMirror);
+	UpdateBuffer(m_cbMirrorBuf, std::vector<XMFLOAT4>{ mirrorPoint, mirrorNormal });
+
 	DrawBox();
 	DrawManipulators();
 	DrawCylinder();
+
+	m_device.context()->RSSetState(nullptr);
 	DrawParticleSystem();
 	
-	
+	SetShaders(m_phongVS, m_phongPS);
 	UpdateCameraCB();
-	m_device.context()->RSSetState(nullptr);
 	m_device.context()->OMSetDepthStencilState(nullptr, 0);
 	m_device.context()->OMSetBlendState(m_bsAlpha.get(), nullptr, 0xFFFFFFFF);
 	DrawMirror();

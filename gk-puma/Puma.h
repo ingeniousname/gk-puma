@@ -25,6 +25,7 @@ namespace mini::gk2
 		dx_ptr<ID3D11Buffer> m_cbWorldMtx, //vertex shader constant buffer slot 0
 			m_cbProjMtx;	//vertex shader constant buffer slot 2 & geometry shader constant buffer slot 0
 		dx_ptr<ID3D11Buffer> m_cbViewMtx; //vertex shader constant buffer slot 1
+		dx_ptr<ID3D11Buffer> m_cbMirrorBuf; //vertex shader constant buffer slot 3
 		dx_ptr<ID3D11Buffer> m_cbSurfaceColor;	//pixel shader constant buffer slot 0
 		dx_ptr<ID3D11Buffer> m_cbLightPos; //pixel shader constant buffer slot 1
 		dx_ptr<ID3D11Buffer> m_cbShadowControl; //pixel shader constant buffer slot 2
@@ -36,6 +37,9 @@ namespace mini::gk2
 		SMMesh m_cylinder;
 		Mesh m_box;
 		SMMesh m_mirror;
+
+		XMFLOAT4 mirrorPoint;
+		XMFLOAT4 mirrorNormal;
 
 		DirectX::XMFLOAT4X4 m_projMtx;
 		DirectX::XMFLOAT4X4 m_mirrorMtx;
@@ -58,14 +62,15 @@ namespace mini::gk2
 		dx_ptr<ID3D11DepthStencilState> m_dssDepthWriteOnly;
 		dx_ptr<ID3D11DepthStencilState> m_dssStencilWrite;
 		dx_ptr<ID3D11DepthStencilState> m_dssStencilTest;
+		dx_ptr<ID3D11DepthStencilState> m_dssStencilTestMirror;
 		dx_ptr<ID3D11DepthStencilState> m_dssStencilShadowVolume;
 		dx_ptr<ID3D11SamplerState> m_samplerWrap;
 
 		dx_ptr<ID3D11InputLayout> m_inputlayout, m_particleLayout;
 
-		dx_ptr<ID3D11VertexShader> m_phongVS, m_textureVS, m_multiTexVS, m_particleVS;
+		dx_ptr<ID3D11VertexShader> m_phongVS, m_phongVSMirror, m_textureVS, m_multiTexVS, m_particleVS;
 		dx_ptr<ID3D11GeometryShader> m_particleGS;
-		dx_ptr<ID3D11PixelShader> m_phongPS, m_texturePS, m_colorTexPS, m_multiTexPS, m_particlePS;
+		dx_ptr<ID3D11PixelShader> m_phongPS, m_phongPSMirror, m_texturePS, m_colorTexPS, m_multiTexPS, m_particlePS;
 
 		void UpdateCameraCB(DirectX::XMMATRIX viewMtx);
 		void UpdateCameraCB() { UpdateCameraCB(m_camera.getViewMatrix()); }

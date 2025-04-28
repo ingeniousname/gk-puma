@@ -181,6 +181,15 @@
     <ClCompile Include="mesh.cpp" />
     <ClCompile Include="mouse.cpp" />
     <ClCompile Include="particleSystem.cpp" />
+    <FxCompile Include="phongPSMirror.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
+    </FxCompile>
+    <FxCompile Include="phongVSMirror.hlsl">
+      <FileType>Document</FileType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
+    </FxCompile>
     <ClCompile Include="Puma.cpp" />
     <ClCompile Include="SMMesh.cpp" />
     <ClCompile Include="SMMesh.h" />
