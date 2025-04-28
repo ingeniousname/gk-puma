@@ -407,15 +407,24 @@ void Puma::DrawMirroredWorld()
 
 	UpdateCameraCB(mirrorRef);
 	SetShaders(m_phongVSMirror, m_phongPSMirror);
-	UpdateBuffer(m_cbMirrorBuf, std::vector<XMFLOAT4>{ mirrorPoint, mirrorNormal });
+	auto camPos = m_camera.getCameraPosition();
+	auto mirrorToPoint = XMLoadFloat4(&camPos) - XMLoadFloat4(&mirrorPoint);
+	float d = XMVectorGetX(XMVector3Dot(mirrorToPoint, XMLoadFloat4(&mirrorNormal)));
+	if(d >= 0)
+		UpdateBuffer(m_cbMirrorBuf, std::vector<XMFLOAT4>{ mirrorPoint, mirrorNormal });
+	else
+	{
+		UpdateBuffer(m_cbMirrorBuf, std::vector<XMFLOAT4>{ mirrorPoint, {-mirrorNormal.x, -mirrorNormal.y,-mirrorNormal.z, mirrorNormal.w}});
+	}
+
 
 	DrawBox();
 	DrawManipulators();
 	DrawCylinder();
 
-	m_device.context()->RSSetState(nullptr);
 	DrawParticleSystem();
-	
+
+	m_device.context()->RSSetState(nullptr);
 	SetShaders(m_phongVS, m_phongPS);
 	UpdateCameraCB();
 	m_device.context()->OMSetDepthStencilState(nullptr, 0);
@@ -526,7 +535,7 @@ void Puma::Render()
 	// render bez swiatla 
 	UpdateBuffer(m_cbShadowControl, XMINT4(1, 1, 1, 1));
 	DrawScene();
-	
+
 	m_device.context()->OMSetDepthStencilState(m_dssStencilShadowVolume.get(), 1);
 	m_device.context()->OMSetBlendState(m_bsNoColor.get(), nullptr, 0xFFFFFFFF);
 	m_device.context()->RSSetState(m_rsNoCull.get());

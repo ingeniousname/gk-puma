@@ -26,28 +26,19 @@ static const float3 ambientColor = float3(0.2f, 0.2f, 0.2f);
 static const float3 lightColor = float3(1.0f, 1.0f, 1.0f);
 static const float kd = 0.5, ks = 0.2f, m = 100.0f;
 
+
 float4 main(PSInput i) : SV_TARGET
 {
-    //clip(-i.clipDist);
-    //float3 newColor;
-    //if(i.clipDist >= 0)
-        //newColor = float3(1.f, 0.f, 0.f);
-    //else newColor = float3(0.f, 1.f, 0.f);
-
-
-    
     float3 viewVec = normalize(i.viewVec);
     float3 normal = normalize(i.norm);
     float3 color = surfaceColor.rgb * ambientColor;
-    //float3 color = newColor * ambientColor;
 
     if (!isInShadow.x)
     {
         float3 lightPosition = lightPos.xyz;
         float3 lightVec = normalize(lightPosition - i.worldPos);
         float3 halfVec = normalize(viewVec + lightVec);
-        color += lightColor * surfaceColor.rgb * kd * saturate(dot(normal, lightVec)); //diffuse color
-        //color += lightColor * newColor * kd * saturate(dot(normal, lightVec)); //diffuse color
+        color += lightColor * surfaceColor.xyz * kd * saturate(dot(normal, lightVec)); //diffuse color
         float nh = dot(normal, halfVec);
         nh = saturate(nh);
         nh = pow(nh, m);

@@ -57,9 +57,11 @@ XMFLOAT3 ParticleSystem::RandomVelocity()
 	static uniform_real_distribution angleDist{ -XM_PIDIV4, XM_PIDIV4 };
 	static uniform_real_distribution magnitudeDist{ 0.f, tan(MAX_ANGLE) };
 	static uniform_real_distribution velDist{ MIN_VELOCITY, MAX_VELOCITY };
+	static uniform_real_distribution yDist{ -1.f, 1.f};
+
 	float angle = angleDist(m_random);
 	float magnitude = magnitudeDist(m_random);
-	XMFLOAT3 v{ cos(-angle)*magnitude, 0.0f, sin(-angle)*magnitude };
+	XMFLOAT3 v{ cos(-angle)*magnitude, yDist(m_random) * magnitude, sin(-angle) * magnitude};
 
 	auto velocity = XMLoadFloat3(&v);
 	auto len = velDist(m_random);

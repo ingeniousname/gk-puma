@@ -17,5 +17,8 @@ float4 main(PSInput i) : SV_TARGET
 	//if (alpha == 0.0f)
 	//	discard;
 	//return float4(color.xyz,alpha);
-	return float4(color.xyz, 1 - i.tex2.x);
+
+    color.g += 0.15f;
+	
+    return float4(color.xyz, 1 - i.tex2.x);
 };
