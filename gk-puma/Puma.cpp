@@ -422,9 +422,9 @@ void Puma::DrawMirroredWorld()
 	DrawManipulators();
 	DrawCylinder();
 
+	m_device.context()->RSSetState(nullptr);
 	DrawParticleSystem();
 
-	m_device.context()->RSSetState(nullptr);
 	SetShaders(m_phongVS, m_phongPS);
 	UpdateCameraCB();
 	m_device.context()->OMSetDepthStencilState(nullptr, 0);

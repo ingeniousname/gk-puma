@@ -54,7 +54,7 @@ vector<ParticleVertex> ParticleSystem::Update(float dt, DirectX::XMFLOAT4 camera
 
 XMFLOAT3 ParticleSystem::RandomVelocity()
 {
-	static uniform_real_distribution angleDist{ -XM_PIDIV4, XM_PIDIV4 };
+	static uniform_real_distribution angleDist{ -XM_PIDIV2, XM_PIDIV2 };
 	static uniform_real_distribution magnitudeDist{ 0.f, tan(MAX_ANGLE) };
 	static uniform_real_distribution velDist{ MIN_VELOCITY, MAX_VELOCITY };
 	static uniform_real_distribution yDist{ -1.f, 1.f};
